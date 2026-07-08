@@ -60,6 +60,24 @@ object AttriaxRequestBuilders {
         context.deviceTimezone?.let { device["timezone"] = it }
         // DeviceContextDto names this `language` (not `locale`).
         context.deviceLocale?.let { device["language"] = it }
+        // Device enrichment (DeviceContextDto parity). Every field is OPTIONAL and is
+        // OMITTED when null; wire names match DeviceContextDto exactly. supportedAbis
+        // and metadata are additionally omitted when empty (Flutter reference).
+        context.deviceBrand?.let { device["brand"] = it }
+        context.deviceHardware?.let { device["hardware"] = it }
+        context.deviceName?.let { device["name"] = it }
+        context.deviceIsPhysical?.let { device["isPhysicalDevice"] = it }
+        context.screenWidth?.let { device["screenWidth"] = it }
+        context.screenHeight?.let { device["screenHeight"] = it }
+        context.screenResolution?.let { device["screenResolution"] = it }
+        context.devicePixelRatio?.let { device["devicePixelRatio"] = it }
+        context.colorDepth?.let { device["colorDepth"] = it }
+        context.supportedAbis?.takeIf { it.isNotEmpty() }?.let { device["supportedAbis"] = it }
+        context.deviceMetadata?.takeIf { it.isNotEmpty() }?.let { device["metadata"] = it }
+        // Device-identity fields — only ever present when a wrapper supplied them
+        // (never auto-captured into the device block).
+        context.advertisingId?.let { device["advertisingId"] = it }
+        context.androidId?.let { device["androidId"] = it }
         body["device"] = device
 
         sessionId?.let { body["sessionId"] = it }

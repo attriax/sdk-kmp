@@ -10,6 +10,7 @@ import com.attriax.sdk.android.AttriaxProcessLifecycleObserver
 import com.attriax.sdk.android.AttriaxSharedPreferencesStore
 import com.attriax.sdk.internal.AttriaxLifecycleBinder
 import com.attriax.sdk.internal.AttriaxContextSnapshot
+import com.attriax.sdk.internal.withDeviceContext
 import com.attriax.sdk.internal.AttriaxDeviceIdentityResolver
 import com.attriax.sdk.internal.AttriaxDeviceIdentityStore
 import com.attriax.sdk.internal.AttriaxUserAgent
@@ -90,7 +91,11 @@ object AttriaxSdk {
 
     private fun captureContext(context: Context, config: AttriaxConfig): AttriaxContextSnapshot {
         val packageName = config.appPackageName ?: context.packageName
-        return AttriaxContextSnapshot(
+        val metrics = context.resources.displayMetrics
+        val screenWidth = metrics.widthPixels.takeIf { it > 0 }
+        val screenHeight = metrics.heightPixels.takeIf { it > 0 }
+        val supportedAbis = Build.SUPPORTED_ABIS?.toList()?.takeIf { it.isNotEmpty() }
+        val autoCaptured = AttriaxContextSnapshot(
             packageName = packageName,
             appVersion = config.appVersion,
             appBuildNumber = config.appBuildNumber,
@@ -99,6 +104,51 @@ object AttriaxSdk {
             osVersion = Build.VERSION.RELEASE ?: "unknown",
             deviceTimezone = TimeZone.getDefault().id,
             deviceLocale = Locale.getDefault().toLanguageTag(),
+            // Non-sensitive device enrichment auto-captured from Build/Resources
+            // (DeviceContextDto parity). advertisingId/androidId are intentionally
+            // NOT auto-captured here — device identity flows via the resolver.
+            deviceBrand = Build.BRAND?.takeIf { it.isNotBlank() },
+            deviceHardware = Build.HARDWARE?.takeIf { it.isNotBlank() },
+            deviceName = (Build.DEVICE ?: Build.PRODUCT)?.takeIf { it.isNotBlank() },
+            deviceIsPhysical = !isProbablyEmulator(),
+            screenWidth = screenWidth,
+            screenHeight = screenHeight,
+            screenResolution = if (screenWidth != null && screenHeight != null) {
+                "${screenWidth}x$screenHeight"
+            } else {
+                null
+            },
+            devicePixelRatio = metrics.density.toDouble().takeIf { it > 0.0 },
+            supportedAbis = supportedAbis,
         )
+        // A wrapper-supplied context wins over auto-capture (wrappers know best).
+        return autoCaptured.withDeviceContext(config.deviceContext)
+    }
+
+    /**
+     * Cheap emulator heuristic driven by Build fingerprint/product/model markers.
+     * Errs toward "physical" for real hardware; only trips on the well-known
+     * emulator signatures (generic fingerprints, `sdk_gphone*`/`google_sdk`, etc.).
+     */
+    private fun isProbablyEmulator(): Boolean {
+        val fingerprint = Build.FINGERPRINT ?: ""
+        val model = Build.MODEL ?: ""
+        val product = Build.PRODUCT ?: ""
+        val manufacturer = Build.MANUFACTURER ?: ""
+        val brand = Build.BRAND ?: ""
+        val device = Build.DEVICE ?: ""
+        return fingerprint.startsWith("generic") ||
+            fingerprint.startsWith("unknown") ||
+            fingerprint.contains("emulator") ||
+            model.contains("google_sdk") ||
+            model.contains("Emulator") ||
+            model.contains("Android SDK built for") ||
+            manufacturer.contains("Genymotion") ||
+            (brand.startsWith("generic") && device.startsWith("generic")) ||
+            product == "google_sdk" ||
+            product.contains("sdk_gphone") ||
+            product.contains("vbox") ||
+            product.contains("emulator") ||
+            product.contains("simulator")
     }
 }

@@ -29,6 +29,15 @@ data class AttriaxConfig(
      */
     val sdkMetadata: Map<String, Any?>? = null,
     /**
+     * Optional wrapper-supplied device context (PARITY — Flutter `DeviceContextDto`).
+     * A host wrapper (Flutter / Unity / React Native) can populate the full device
+     * field set here; every supplied value WINS over the core's Android auto-capture
+     * (the wrapper knows its runtime best). `null` (the default) leaves the core to
+     * auto-capture the non-sensitive device fields on Android and to send only the
+     * required five elsewhere. See [AttriaxDeviceContext].
+     */
+    val deviceContext: AttriaxDeviceContext? = null,
+    /**
      * Whether verbose (debug/info) SDK logging is emitted (PARITY — Flutter
      * `AttriaxConfig.enableDebugLogs`, types_session_config.dart:159). Warnings and
      * errors always emit; debug/info are gated behind this flag. Flutter's field is
