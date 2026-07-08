@@ -107,6 +107,13 @@ class Attriax internal constructor(
     private val installUncaughtExceptionHandler:
         (onFatalCrash: (Throwable) -> Unit) -> AttriaxUncaughtHandlerRegistration =
         ::attriaxInstallUncaughtExceptionHandler,
+    /**
+     * Browser-open seam for deep-link browser-fallback URLs (PARITY §6). Defaults to
+     * [AttriaxBrowserOpener.Unavailable] (no-op) so the pure engine + jvm/native never
+     * open anything; the android factory injects an ACTION_VIEW-backed opener. Gated
+     * by [AttriaxConfig.automaticBrowserHandling] before it is ever called.
+     */
+    private val browserOpener: AttriaxBrowserOpener = AttriaxBrowserOpener.Unavailable,
 ) {
     /**
      * Leveled logger (PARITY — Flutter reference `AttriaxLogger`). Constructed once
@@ -286,7 +293,26 @@ class Attriax internal constructor(
             if (handled) store.putString(KEY_DEFERRED_DEEP_LINK_HANDLED, "true")
             else store.remove(KEY_DEFERRED_DEEP_LINK_HANDLED)
         },
+        handleBrowserAction = { action -> maybeOpenBrowser(action) },
     )
+
+    /**
+     * Open a resolution's browser-fallback [action] when auto-handling is on (PARITY
+     * §6 — Flutter `AttriaxDeepLinkBrowserHandler.handle`). Returns whether the SDK
+     * opened it. Best-effort: a null action, the flag being off, or an opener failure
+     * all yield `false` and never throw into the resolve callback.
+     */
+    private fun maybeOpenBrowser(action: AttriaxBrowserAction?): Boolean {
+        if (action == null || !config.automaticBrowserHandling) return false
+        return try {
+            browserOpener.open(action.url).also { opened ->
+                if (!opened) logger.warn("Attriax could not open resolved browser URL ${action.url}.")
+            }
+        } catch (e: Exception) {
+            logger.warn("Attriax browser-open seam threw for ${action.url}: ${e.message}")
+            false
+        }
+    }
 
     /**
      * Backs the public `referrer` query surface (PARITY — referrer query API):
@@ -302,6 +328,19 @@ class Attriax internal constructor(
     val isInitialized: Boolean get() = initialized.value
     val isFirstLaunch: Boolean get() = firstLaunch
     val deviceId: String? get() = deviceIdentity?.value
+
+    /**
+     * SDK version + metadata snapshot (PARITY — Flutter `Attriax.sdkSnapshot`,
+     * attriax.dart:141). Built from the injected context snapshot (sdk api/package
+     * version) and [AttriaxConfig.sdkMetadata]. Always available (the context is
+     * captured at construction), unlike Flutter's null-until-init getter.
+     */
+    val sdkSnapshot: AttriaxSdkSnapshot
+        get() = AttriaxSdkSnapshot(
+            apiVersion = context.sdkApiVersion,
+            packageVersion = context.sdkPackageVersion,
+            metadata = config.sdkMetadata ?: emptyMap(),
+        )
 
     var enabled: Boolean
         get() = enabledFlag.value
@@ -674,8 +713,11 @@ class Attriax internal constructor(
      * Direct (non-queued) receipt validation (PARITY §4). Works even when tracking
      * is disabled / consent is unresolved because it bypasses the queue and the
      * enabled gate entirely — it is a synchronous request/response, not a fire-and-
-     * forget signal. Returns the decoded response payload (envelope already
-     * unwrapped by the transport), or throws the transport exception on failure.
+     * forget signal. Returns the typed [AttriaxRevenueReceiptValidationResult] parsed
+     * from the decoded response (envelope already unwrapped by the transport), or
+     * throws the transport exception on failure. Mirrors the Flutter reference
+     * `Attriax.validateReceipt` (attriax.dart:188-202), which also returns the typed
+     * result rather than a raw map.
      *
      * Must be called off the main thread (it performs blocking I/O).
      */
@@ -686,7 +728,7 @@ class Attriax internal constructor(
         environment: String? = null,
         productId: String? = null,
         transactionId: String? = null,
-    ): Any? {
+    ): AttriaxRevenueReceiptValidationResult {
         requireInitialized()
         val normalizedReceipt = receipt.trim()
         require(normalizedReceipt.isNotEmpty()) { "receipt must not be empty." }
@@ -705,7 +747,8 @@ class Attriax internal constructor(
             com.attriax.sdk.internal.request.AttriaxEndpoints.RECEIPTS_VALIDATE,
             com.attriax.sdk.internal.json.Json.encode(body),
         )
-        return response.body?.let { com.attriax.sdk.internal.json.Json.decode(it) }
+        val decoded = response.body?.let { com.attriax.sdk.internal.json.Json.decode(it) }
+        return AttriaxRevenueReceiptValidationResult.fromResponse(decoded)
     }
 
     /** Best-effort flush kicked onto the background executor. */
@@ -740,9 +783,18 @@ class Attriax internal constructor(
     internal fun waitForInitialDeepLink(): AttriaxDeepLinkEvent? =
         deepLinkManager.waitForInitialDeepLink()
 
-    internal fun recordDeepLink(uri: String, metadata: Map<String, Any?>?, source: String) {
+    internal fun recordDeepLink(
+        uri: String,
+        metadata: Map<String, Any?>?,
+        source: String,
+    ): AttriaxDeepLinkEvent? {
         requireInitialized()
-        deepLinkManager.recordDeepLink(uri, metadata, source)
+        return deepLinkManager.recordDeepLink(uri, metadata, source)
+    }
+
+    internal fun waitForDeepLinkResolution(rawEvent: AttriaxRawDeepLinkEvent): AttriaxDeepLinkEvent? {
+        requireInitialized()
+        return deepLinkManager.waitResolution(rawEvent)
     }
 
     /**

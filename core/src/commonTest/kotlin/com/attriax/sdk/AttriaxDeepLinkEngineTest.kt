@@ -82,12 +82,18 @@ class AttriaxDeepLinkEngineTest {
         deviceLocale = "en-US",
     )
 
-    private fun engine(store: MapStore, transport: DeepLinkTransport, firstLaunch: Boolean): Attriax {
+    private fun engine(
+        store: MapStore,
+        transport: HttpClient,
+        firstLaunch: Boolean,
+        config: AttriaxConfig = AttriaxConfig(projectToken = "tok"),
+        browserOpener: AttriaxBrowserOpener = AttriaxBrowserOpener.Unavailable,
+    ): Attriax {
         if (!firstLaunch) store.putString("attriax.first_launch_completed", "false")
         val resolver = AttriaxDeviceIdentityResolver(FixedSources("SSAID-123"), collectAdvertisingId = false)
         val identityStore = AttriaxDeviceIdentityStore(store, resolver)
         return Attriax(
-            config = AttriaxConfig(projectToken = "tok"),
+            config = config,
             store = store,
             transport = transport,
             connectivity = NoopConnectivity(),
@@ -96,6 +102,7 @@ class AttriaxDeepLinkEngineTest {
             clock = AttriaxClock { 1_000L },
             flushExecutor = AttriaxTestBackgroundExecutor(),
             consentExecutor = AttriaxTestBackgroundExecutor(),
+            browserOpener = browserOpener,
         ).also { it.init() }
     }
 
@@ -138,6 +145,80 @@ class AttriaxDeepLinkEngineTest {
         assertEquals(AttriaxDeepLinkTrigger.DEFERRED, deferred.trigger)
         // Persisted handled flag prevents a second emit.
         assertEquals("true", store.getString("attriax.deferred_deep_link_handled"))
+    }
+
+    /** A resolve transport whose resolution carries a browser-fallback action. */
+    private class BrowserActionTransport : HttpClient {
+        override fun post(path: String, body: String): HttpResponse = when (path) {
+            "/api/sdk/v1/deep-links/resolve" -> HttpResponse(
+                200,
+                """{"matched":true,"status":"matched","isFirstLaunch":false,""" +
+                    """"deepLink":{"uri":"https://sub.attriax.com/promo"},""" +
+                    """"browserAction":{"url":"https://fallback.example.com/go","openMode":"external"}}""",
+            )
+            else -> HttpResponse(200, "{}")
+        }
+    }
+
+    private class FakeBrowserOpener : AttriaxBrowserOpener {
+        val opened = ArrayList<String>()
+        override fun open(url: String): Boolean {
+            opened.add(url)
+            return true
+        }
+    }
+
+    @Test
+    fun opensBrowserActionWhenAutomaticBrowserHandlingOn() {
+        val opener = FakeBrowserOpener()
+        val sdk = engine(
+            MapStore(),
+            BrowserActionTransport(),
+            firstLaunch = false,
+            config = AttriaxConfig(projectToken = "tok", automaticBrowserHandling = true),
+            browserOpener = opener,
+        )
+        val received = ArrayList<AttriaxDeepLinkEvent>()
+        sdk.deepLinks.addListener { received.add(it) }
+
+        sdk.deepLinks.handleUri("https://sub.attriax.com/promo", isInitialLink = false)
+
+        assertEquals(listOf("https://fallback.example.com/go"), opener.opened)
+        assertTrue(received.first { it.isForeground }.handledBySdk)
+    }
+
+    @Test
+    fun doesNotOpenBrowserActionWhenAutomaticBrowserHandlingOff() {
+        val opener = FakeBrowserOpener()
+        val sdk = engine(
+            MapStore(),
+            BrowserActionTransport(),
+            firstLaunch = false,
+            config = AttriaxConfig(projectToken = "tok", automaticBrowserHandling = false),
+            browserOpener = opener,
+        )
+        val received = ArrayList<AttriaxDeepLinkEvent>()
+        sdk.deepLinks.addListener { received.add(it) }
+
+        sdk.deepLinks.handleUri("https://sub.attriax.com/promo", isInitialLink = false)
+
+        assertTrue(opener.opened.isEmpty())
+        assertTrue(received.any { it.isForeground })
+        assertTrue(!received.first { it.isForeground }.handledBySdk)
+    }
+
+    @Test
+    fun sdkSnapshotReportsVersionAndMetadata() {
+        val sdk = engine(
+            MapStore(),
+            DeepLinkTransport(),
+            firstLaunch = false,
+            config = AttriaxConfig(projectToken = "tok", sdkMetadata = mapOf("clientRuntime" to "kmp")),
+        )
+        val snapshot = sdk.sdkSnapshot
+        assertEquals(AttriaxVersion.API_VERSION, snapshot.apiVersion)
+        assertEquals(AttriaxVersion.PACKAGE_VERSION, snapshot.packageVersion)
+        assertEquals("kmp", snapshot.metadata["clientRuntime"])
     }
 
     @Test

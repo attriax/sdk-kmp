@@ -1,5 +1,6 @@
 package com.attriax.sdk.internal.deeplink
 
+import com.attriax.sdk.AttriaxBrowserAction
 import com.attriax.sdk.AttriaxDeepLinkEvent
 import com.attriax.sdk.AttriaxDeepLinkListener
 import com.attriax.sdk.AttriaxDeepLinkTrigger
@@ -36,6 +37,16 @@ class AttriaxDeepLinkManager(
     private val readDeferredHandled: () -> Boolean,
     /** Persists the deferred-handled flag so the deferred link fires ONCE (row DL3). */
     private val writeDeferredHandled: (Boolean) -> Unit,
+    /**
+     * Open a resolution's browser-fallback action, returning whether the SDK handled
+     * it (PARITY §6 — Flutter `_buildResolutionWithBrowserHandling` →
+     * `AttriaxDeepLinkBrowserHandler.handle`). The engine supplies a function that
+     * already applies the [com.attriax.sdk.AttriaxConfig.automaticBrowserHandling]
+     * gate and the platform opener; the default no-ops (never handled). Invoked ONLY
+     * for incoming + manual resolutions, never for deferred recovery (matching the
+     * reference, whose `buildDeferredResolution` performs no browser handling).
+     */
+    private val handleBrowserAction: (AttriaxBrowserAction?) -> Boolean = { false },
     /** Dedup window for identical URIs (row DL2). Default 2s per the reference. */
     private val dedupWindowMs: Long = DEFAULT_DEDUP_WINDOW_MS,
 ) {
@@ -48,6 +59,16 @@ class AttriaxDeepLinkManager(
 
     private var lastHandledRaw: String? = null
     private var lastHandledAtMs: Long = 0
+
+    /**
+     * Per-raw-event resolution slots (PARITY §6 — Flutter event-hub
+     * `_pendingDeepLinkResults`). Registered when a link is staged for resolution and
+     * completed (with the resolved event, or null on failure/no-capture) when the
+     * backend responds, so [waitResolution] can block for a specific raw event's
+     * outcome. Kept after completion (like the Flutter completers) so a late waiter
+     * still observes the resolved value. Guarded by [lock].
+     */
+    private val pendingResolutions = mutableMapOf<AttriaxRawDeepLinkEvent, ResolutionSlot>()
 
     @Volatile private var latestEvent: AttriaxDeepLinkEvent? = null
     @Volatile private var initialEvent: AttriaxDeepLinkEvent? = null
@@ -134,20 +155,29 @@ class AttriaxDeepLinkManager(
 
         val raw = AttriaxRawDeepLinkEvent(uri = uri, receivedAtMs = receivedAt, isInitial = isInitialLink)
         if (isInitialLink) rawInitialEvent = raw
-        val rawRecipients = synchronized(lock) { ArrayList(rawListeners) }
+        val slot = ResolutionSlot()
+        val rawRecipients = synchronized(lock) {
+            pendingResolutions[raw] = slot
+            ArrayList(rawListeners)
+        }
         rawRecipients.forEach { it.onRawDeepLink(raw) }
 
         val metadata = AttriaxDeepLinkResolver.buildResolveMetadata(uri, isInitialLink)
         resolveDispatch(uri, metadata, source, isInitialLink) { data ->
             val trigger = if (isInitialLink) AttriaxDeepLinkTrigger.COLD_START else AttriaxDeepLinkTrigger.FOREGROUND
             val event = if (data != null) {
+                val result = AttriaxDeepLinkResolver.decodeResolution(data)
+                // Browser handling runs BEFORE building the event so `handledBySdk`
+                // reflects the open outcome (PARITY — _buildResolutionWithBrowserHandling).
+                val handledBySdk = handleBrowserAction(result.browserAction)
                 AttriaxDeepLinkResolver.buildResolution(
-                    result = AttriaxDeepLinkResolver.decodeResolution(data),
+                    result = result,
                     clickedAtMs = receivedAt,
                     consumedAtMs = nowMs(),
                     trigger = trigger,
                     fallbackUri = uri,
                     rawEvent = raw,
+                    handledBySdk = handledBySdk,
                 )
             } else {
                 null
@@ -157,36 +187,70 @@ class AttriaxDeepLinkManager(
                 completeInitialLinkIfAbsent()
             }
             if (event != null) emit(event)
+            slot.complete(event)
         }
     }
 
     /**
      * Record a manual deep-link conversion (public `recordDeepLink`). Behaves like
      * an incoming link but with a caller-supplied source + optional metadata and
-     * WITHOUT dedup/initial-link probing. Returns nothing; the resolved event is
-     * emitted to observers.
+     * WITHOUT dedup/initial-link probing. Mirrors the Flutter reference
+     * `recordManualConversion`, which RETURNS the resolved event (attriax_deep_links
+     * .dart:90-94): the resolved event is emitted to observers AND returned here.
+     *
+     * Blocks (bounded by [timeoutMs]) until resolution completes; returns the
+     * resolved event, or null when the resolve failed / was withheld / timed out.
+     * Off-main-thread only (matches the facade's blocking convention). A malformed
+     * URI returns null immediately.
      */
     fun recordDeepLink(
         rawUri: String,
         metadata: Map<String, Any?>?,
         source: String = SOURCE_MANUAL,
-    ) {
-        val uri = AttriaxUri.parse(rawUri) ?: return
+        timeoutMs: Long = DEFAULT_MANUAL_CONVERSION_TIMEOUT_MS,
+    ): AttriaxDeepLinkEvent? {
+        val uri = AttriaxUri.parse(rawUri) ?: return null
         val receivedAt = nowMs()
         val merged = AttriaxDeepLinkResolver.buildResolveMetadata(uri, isInitialLink = false, extra = metadata)
+        val slot = ResolutionSlot()
         resolveDispatch(uri, merged, source, false) { data ->
-            if (data != null) {
-                emit(
-                    AttriaxDeepLinkResolver.buildResolution(
-                        result = AttriaxDeepLinkResolver.decodeResolution(data),
-                        clickedAtMs = receivedAt,
-                        consumedAtMs = nowMs(),
-                        trigger = AttriaxDeepLinkTrigger.FOREGROUND,
-                        fallbackUri = uri,
-                    ),
+            val event = if (data != null) {
+                val result = AttriaxDeepLinkResolver.decodeResolution(data)
+                val handledBySdk = handleBrowserAction(result.browserAction)
+                AttriaxDeepLinkResolver.buildResolution(
+                    result = result,
+                    clickedAtMs = receivedAt,
+                    consumedAtMs = nowMs(),
+                    trigger = AttriaxDeepLinkTrigger.FOREGROUND,
+                    fallbackUri = uri,
+                    handledBySdk = handledBySdk,
                 )
+            } else {
+                null
             }
+            if (event != null) emit(event)
+            slot.complete(event)
         }
+        return slot.await(timeoutMs)
+    }
+
+    /**
+     * Wait for the resolution of a previously-staged raw deep link (PARITY §6 —
+     * Flutter `waitResolution` → event-hub `waitForResolution`,
+     * attriax_deep_links.dart:46-48). Blocks (bounded by [timeoutMs]) until the raw
+     * event's resolution completes and returns the resolved event, or null when it
+     * failed / timed out. Off-main-thread only.
+     *
+     * Semantic difference vs Flutter: an UNKNOWN raw event (never staged) returns
+     * null here, whereas Flutter returns an errored future — the KMP facade favors
+     * nullable returns over throwing (as `waitForInitialDeepLink` already does).
+     */
+    fun waitResolution(
+        rawEvent: AttriaxRawDeepLinkEvent,
+        timeoutMs: Long = DEFAULT_WAIT_TIMEOUT_MS,
+    ): AttriaxDeepLinkEvent? {
+        val slot = synchronized(lock) { pendingResolutions[rawEvent] } ?: return null
+        return slot.await(timeoutMs)
     }
 
     /**
@@ -222,9 +286,42 @@ class AttriaxDeepLinkManager(
         prevUri == uriString && nowMs - prevAt < dedupWindowMs
     }
 
+    /**
+     * A one-shot resolution result holder (the KMP analog of a Dart `Completer`).
+     * Backed by [AttriaxLatch] so a waiter blocks off-main-thread until the resolve
+     * callback fires (or the bounded timeout elapses). Idempotent: only the first
+     * [complete] wins; late [await] callers read the stored value without blocking.
+     */
+    private class ResolutionSlot {
+        private val slotLock = SynchronizedObject()
+        private val latch = AttriaxLatch(1)
+        @Volatile private var done = false
+        @Volatile private var event: AttriaxDeepLinkEvent? = null
+
+        fun complete(resolved: AttriaxDeepLinkEvent?) {
+            val first = synchronized(slotLock) {
+                if (done) {
+                    false
+                } else {
+                    event = resolved
+                    done = true
+                    true
+                }
+            }
+            if (first) latch.countDown()
+        }
+
+        fun await(timeoutMs: Long): AttriaxDeepLinkEvent? {
+            if (!done) latch.await(timeoutMs)
+            return event
+        }
+    }
+
     companion object {
         const val DEFAULT_DEDUP_WINDOW_MS = 2_000L
         const val DEFAULT_WAIT_TIMEOUT_MS = 10_000L
+        /** Upper bound for a manual `recordDeepLink` wait (Flutter's default is 10s). */
+        const val DEFAULT_MANUAL_CONVERSION_TIMEOUT_MS = 10_000L
         const val SOURCE_AUTOMATIC = "attriax_sdk"
         const val SOURCE_MANUAL = "manual"
     }

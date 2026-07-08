@@ -70,6 +70,53 @@ class AttriaxDeepLinkDeferredRecoveryTest {
     }
 
     @Test
+    fun parsesIsoServerClickAndConsumeTimestamps() {
+        // Backend serializes deferred click/consume as ISO-8601 strings; they must be
+        // parsed to their real epoch-millis, NOT collapsed to the recovery-time-now.
+        val data = mapOf<String, Any?>(
+            "deepLink" to mapOf("uri" to "https://sub.attriax.com/x"),
+            "deepLinkClickedAt" to "1994-11-06T08:49:37.700Z",
+            "deepLinkConsumedAt" to "1994-11-06T08:49:38.000Z",
+        )
+        val event = AttriaxDeepLinkDeferredRecovery.recover(data, fallbackTimeMs = 9_999L)!!
+        assertEquals(784_111_777_700L, event.clickedAtMs)
+        assertEquals(784_111_778_000L, event.consumedAtMs)
+    }
+
+    @Test
+    fun fallsBackToAcceptedAtIsoThenNowForTimestamps() {
+        // No click/consume, but an ISO acceptedAt → both timestamps take acceptedAt.
+        val withAccepted = mapOf<String, Any?>(
+            "deepLink" to mapOf("uri" to "https://sub.attriax.com/x"),
+            "acceptedAt" to "1994-11-06T08:49:37.005Z",
+        )
+        val a = AttriaxDeepLinkDeferredRecovery.recover(withAccepted, fallbackTimeMs = 9_999L)!!
+        assertEquals(784_111_777_005L, a.clickedAtMs)
+        assertEquals(784_111_777_005L, a.consumedAtMs)
+
+        // Nothing parseable → the now-fallback is used for both.
+        val absent = mapOf<String, Any?>(
+            "deepLink" to mapOf("uri" to "https://sub.attriax.com/x"),
+            "deepLinkClickedAt" to "not-a-date",
+        )
+        val b = AttriaxDeepLinkDeferredRecovery.recover(absent, fallbackTimeMs = 9_999L)!!
+        assertEquals(9_999L, b.clickedAtMs)
+        assertEquals(9_999L, b.consumedAtMs)
+    }
+
+    @Test
+    fun stillHonorsNumericTimestamps() {
+        val data = mapOf<String, Any?>(
+            "deepLink" to mapOf("uri" to "https://sub.attriax.com/x"),
+            "deepLinkClickedAt" to 1_234L,
+            "deepLinkConsumedAt" to 5_678,
+        )
+        val event = AttriaxDeepLinkDeferredRecovery.recover(data, fallbackTimeMs = 9_999L)!!
+        assertEquals(1_234L, event.clickedAtMs)
+        assertEquals(5_678L, event.consumedAtMs)
+    }
+
+    @Test
     fun carriesReferrerUtmWhenNoDeepLink() {
         val data = mapOf<String, Any?>(
             "reinstallReferrer" to mapOf(

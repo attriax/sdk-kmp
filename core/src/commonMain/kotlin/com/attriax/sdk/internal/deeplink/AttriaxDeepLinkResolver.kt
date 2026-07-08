@@ -106,6 +106,7 @@ object AttriaxDeepLinkResolver {
         trigger: AttriaxDeepLinkTrigger,
         fallbackUri: AttriaxUri,
         rawEvent: AttriaxRawDeepLinkEvent? = null,
+        handledBySdk: Boolean = false,
     ): AttriaxDeepLinkEvent {
         // Prefer the backend canonical URI, then a URI derived from a normalized
         // path (only when a path was actually returned), else the original link.
@@ -124,6 +125,7 @@ object AttriaxDeepLinkResolver {
             data = result.data,
             utm = result.utm,
             browserAction = result.browserAction,
+            handledBySdk = handledBySdk,
         )
     }
 

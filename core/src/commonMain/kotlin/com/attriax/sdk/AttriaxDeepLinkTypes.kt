@@ -79,6 +79,14 @@ data class AttriaxDeepLinkEvent(
     val data: Map<String, String>? = null,
     val utm: Map<String, String>? = null,
     val browserAction: AttriaxBrowserAction? = null,
+    /**
+     * Whether the SDK opened this resolution's browser-fallback URL itself (PARITY —
+     * Flutter `AttriaxDeepLinkEvent.handledBySdk`, set by `buildResolution` from the
+     * browser handler). `true` only when [AttriaxConfig.automaticBrowserHandling] is
+     * on, the resolution carried a [browserAction], and the platform opener reported
+     * a successful open. Always `false` for deferred events (no browser handling).
+     */
+    val handledBySdk: Boolean = false,
 ) {
     val isDeferred: Boolean get() = trigger == AttriaxDeepLinkTrigger.DEFERRED
     val isColdStart: Boolean get() = trigger == AttriaxDeepLinkTrigger.COLD_START

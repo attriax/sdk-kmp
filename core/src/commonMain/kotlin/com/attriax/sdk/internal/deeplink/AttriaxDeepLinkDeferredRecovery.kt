@@ -3,6 +3,7 @@ package com.attriax.sdk.internal.deeplink
 import com.attriax.sdk.AttriaxDeepLinkEvent
 import com.attriax.sdk.AttriaxDeepLinkResolutionStatus
 import com.attriax.sdk.AttriaxDeepLinkTrigger
+import com.attriax.sdk.internal.AttriaxIso8601
 
 /**
  * Pure deferred deep-link recovery from the app-open RESPONSE (PARITY §6, row DL3).
@@ -98,11 +99,20 @@ object AttriaxDeepLinkDeferredRecovery {
     private fun pathAsUri(normalizedPath: String?): String =
         if (normalizedPath == null) "/" else "/$normalizedPath"
 
-    /** Deferred timestamps arrive as ISO-8601 strings; we only need a monotone ordering. */
+    /**
+     * Extract a deferred timestamp as epoch-millis. The backend serializes the
+     * app-open click/consume timestamps as ISO-8601 STRINGS (the Flutter reference
+     * parses `result.deepLinkClickedAt` / `deepLinkConsumedAt` as `DateTime` via
+     * `attriaxDateTimeValue` → `DateTime.tryParse`, deep_link_resolver.dart:90-92).
+     * A numeric value is still honored (epoch millis) for forward-compatibility;
+     * an ISO string is parsed via [AttriaxIso8601.parseUtcMillisOrNull]; anything
+     * absent/unparseable yields null so the caller falls back to recovery-time-now.
+     */
     private fun timeOrNull(value: Any?): Long? = when (value) {
         is Long -> value
         is Int -> value.toLong()
         is Double -> value.toLong()
+        is String -> AttriaxIso8601.parseUtcMillisOrNull(value)
         else -> null
     }
 

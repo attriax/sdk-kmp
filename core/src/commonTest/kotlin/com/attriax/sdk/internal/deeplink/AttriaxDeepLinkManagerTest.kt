@@ -34,11 +34,13 @@ class AttriaxDeepLinkManagerTest {
         clock: () -> Long,
         dispatch: RecordingDispatch,
         flags: FlagStore = FlagStore(),
+        handleBrowserAction: (com.attriax.sdk.AttriaxBrowserAction?) -> Boolean = { false },
     ) = AttriaxDeepLinkManager(
         nowMs = clock,
         resolveDispatch = dispatch.asLambda(),
         readDeferredHandled = { flags.handled },
         writeDeferredHandled = { flags.handled = it },
+        handleBrowserAction = handleBrowserAction,
     )
 
     @Test
@@ -175,12 +177,108 @@ class AttriaxDeepLinkManagerTest {
         assertEquals(0, received.size)
     }
 
+    @Test
+    fun recordDeepLinkReturnsResolvedEvent() {
+        val dispatch = RecordingDispatch()
+        val mgr = manager({ 7L }, dispatch)
+        val received = ArrayList<AttriaxDeepLinkEvent>()
+        mgr.addListener { received.add(it) }
+
+        val event = mgr.recordDeepLink(
+            rawUri = "https://sub.attriax.com/manual",
+            metadata = mapOf("k" to "v"),
+        )
+
+        assertTrue(event != null)
+        assertTrue(event.found)
+        assertEquals(AttriaxDeepLinkTrigger.FOREGROUND, event.trigger)
+        // Also emitted to observers.
+        assertEquals(1, received.size)
+        // The caller metadata reached the resolve dispatch.
+        assertEquals("v", dispatch.calls.first().second["k"])
+    }
+
+    @Test
+    fun recordDeepLinkReturnsNullOnFailedResolution() {
+        val dispatch = RecordingDispatch(response = null) // resolve failed / withheld
+        val mgr = manager({ 0L }, dispatch)
+        assertNull(mgr.recordDeepLink(rawUri = "https://sub.attriax.com/x", metadata = null))
+    }
+
+    @Test
+    fun waitResolutionReturnsResolutionForRawEvent() {
+        val dispatch = RecordingDispatch()
+        val mgr = manager({ 3L }, dispatch)
+        val raws = ArrayList<com.attriax.sdk.AttriaxRawDeepLinkEvent>()
+        mgr.addRawListener { raws.add(it) }
+
+        mgr.handleIncomingLink("https://sub.attriax.com/promo", isInitialLink = false)
+
+        // The raw event was published; its resolution already completed inline.
+        val resolution = mgr.waitResolution(raws.first())
+        assertTrue(resolution != null)
+        assertTrue(resolution.found)
+    }
+
+    @Test
+    fun waitResolutionReturnsNullForUnknownRawEvent() {
+        val dispatch = RecordingDispatch()
+        val mgr = manager({ 0L }, dispatch)
+        val unknown = com.attriax.sdk.AttriaxRawDeepLinkEvent(
+            uri = AttriaxUri.parse("https://sub.attriax.com/never")!!,
+            receivedAtMs = 0L,
+            isInitial = false,
+        )
+        assertNull(mgr.waitResolution(unknown))
+    }
+
+    @Test
+    fun invokesBrowserOpenerWithResolvedBrowserActionUrl() {
+        val dispatch = RecordingDispatch(response = BROWSER_ACTION_RESPONSE)
+        val opened = ArrayList<String>()
+        val mgr = manager({ 0L }, dispatch, handleBrowserAction = { action ->
+            action?.url?.let { opened.add(it) }
+            action != null
+        })
+
+        val event = mgr.recordDeepLink(rawUri = "https://sub.attriax.com/promo", metadata = null)
+
+        assertEquals(listOf("https://fallback.example.com/open"), opened)
+        assertTrue(event?.handledBySdk == true)
+    }
+
+    @Test
+    fun doesNotInvokeBrowserOpenerWithoutBrowserAction() {
+        val dispatch = RecordingDispatch() // MATCHED_RESPONSE has no browserAction
+        var calledWithNonNull = false
+        val mgr = manager({ 0L }, dispatch, handleBrowserAction = { action ->
+            if (action != null) calledWithNonNull = true
+            false
+        })
+
+        val event = mgr.recordDeepLink(rawUri = "https://sub.attriax.com/promo", metadata = null)
+
+        assertFalse(calledWithNonNull)
+        assertFalse(event?.handledBySdk ?: true)
+    }
+
     companion object {
         private val MATCHED_RESPONSE = mapOf<String, Any?>(
             "matched" to true,
             "status" to "matched",
             "isFirstLaunch" to false,
             "deepLink" to mapOf("uri" to null),
+        )
+
+        private val BROWSER_ACTION_RESPONSE = mapOf<String, Any?>(
+            "matched" to true,
+            "status" to "matched",
+            "isFirstLaunch" to false,
+            "deepLink" to mapOf("uri" to "https://sub.attriax.com/promo"),
+            "browserAction" to mapOf(
+                "url" to "https://fallback.example.com/open",
+                "openMode" to "external",
+            ),
         )
     }
 }

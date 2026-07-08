@@ -289,7 +289,10 @@ class AttriaxTrackingTest {
         // Direct call hit the transport synchronously.
         val receiptPost = transport.posts.firstOrNull { it.first.contains("receipts/validate") }
         assertTrue(receiptPost != null, "receipt validate should post directly")
-        assertNull((result as? Map<*, *>)?.get("missing"), "transport returns empty object → decoded empty map")
+        // Empty response object → lenient typed result: rejected, empty validationId + receipt.
+        assertEquals(AttriaxRevenueReceiptValidationStatus.REJECTED, result.status)
+        assertEquals("", result.validationId)
+        assertTrue(result.publicReceipt.isEmpty())
         // It bypasses the queue (no receipt entry persisted).
         val queued = AttriaxQueueManager(store, 500).readAll()
         assertTrue(queued.none { it.request.path.contains("receipts/validate") })

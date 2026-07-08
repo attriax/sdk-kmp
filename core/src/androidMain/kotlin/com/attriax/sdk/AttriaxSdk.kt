@@ -86,6 +86,9 @@ object AttriaxSdk {
                     override fun unbind() = observer.unregister()
                 }
             },
+            // Deep-link browser-fallback opener (PARITY §6). Gated by the engine on
+            // config.automaticBrowserHandling; fires an ACTION_VIEW intent.
+            browserOpener = com.attriax.sdk.android.AttriaxAndroidBrowserOpener(appContext),
         )
     }
 

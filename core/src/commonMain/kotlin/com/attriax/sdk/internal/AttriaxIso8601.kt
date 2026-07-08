@@ -41,4 +41,18 @@ internal object AttriaxIso8601 {
         repeat((width - s.length).coerceAtLeast(0)) { sb.append('0') }
         sb.append(s)
     }
+
+    /**
+     * Parse an ISO-8601 timestamp string to epoch-millis, or `null` when it is not a
+     * parseable instant. Mirrors the Flutter reference's `DateTime.tryParse` used by
+     * `attriaxDateTimeValue` (attriax_json_utils.dart) to read the server's
+     * click/consume timestamps — a soft parse that yields null rather than throwing.
+     * Delegates to kotlinx-datetime `Instant.parse`, which accepts the RFC-3339 /
+     * ISO-8601 forms the backend emits (e.g. `2024-01-02T03:04:05.678Z`).
+     */
+    fun parseUtcMillisOrNull(value: String): Long? = try {
+        Instant.parse(value.trim()).toEpochMilliseconds()
+    } catch (e: Exception) {
+        null
+    }
 }

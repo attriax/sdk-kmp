@@ -37,4 +37,22 @@ class AttriaxIso8601Test {
     fun fullThreeDigitMillisArePreserved() {
         assertEquals("1994-11-06T08:49:37.123Z", AttriaxIso8601.formatUtcMillis(784_111_777_123L))
     }
+
+    @Test
+    fun parsesIsoStringToEpochMillis() {
+        assertEquals(784_111_777_700L, AttriaxIso8601.parseUtcMillisOrNull("1994-11-06T08:49:37.700Z"))
+        assertEquals(0L, AttriaxIso8601.parseUtcMillisOrNull("1970-01-01T00:00:00.000Z"))
+    }
+
+    @Test
+    fun parseReturnsNullForUnparseableValue() {
+        assertEquals(null, AttriaxIso8601.parseUtcMillisOrNull("not-a-date"))
+        assertEquals(null, AttriaxIso8601.parseUtcMillisOrNull(""))
+    }
+
+    @Test
+    fun formatAndParseRoundTrip() {
+        val ms = 784_111_777_123L
+        assertEquals(ms, AttriaxIso8601.parseUtcMillisOrNull(AttriaxIso8601.formatUtcMillis(ms)))
+    }
 }

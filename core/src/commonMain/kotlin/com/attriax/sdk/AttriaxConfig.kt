@@ -74,6 +74,15 @@ data class AttriaxConfig(
      */
     val attestationProvider: AttriaxAttestationProvider? = null,
     val pinnedCertificateSha256Fingerprints: List<String> = emptyList(),
+    /**
+     * Whether a resolved deep link that carries a backend browser-fallback URL may be
+     * opened automatically by the SDK (PARITY — Flutter `AttriaxConfig
+     * .automaticBrowserHandling`, types_session_config.dart:119/186-187). DEFAULT-ON,
+     * matching Flutter. When `true` and a resolution carries a `browserAction`, the
+     * SDK opens the URL via the injected [AttriaxBrowserOpener] (an ACTION_VIEW intent
+     * on Android; a documented no-op on jvm/native until desktop browser-open lands).
+     */
+    val automaticBrowserHandling: Boolean = true,
 ) {
     init {
         require(maxQueueSize > 0) { "maxQueueSize must be positive" }

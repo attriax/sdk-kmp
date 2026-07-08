@@ -68,18 +68,31 @@ class AttriaxDeepLinks internal constructor(private val engine: Attriax) {
      */
     fun waitForInitialDeepLink(): AttriaxDeepLinkEvent? = engine.waitForInitialDeepLink()
 
+    /**
+     * Block until the resolution for [rawEvent] completes, returning the resolved
+     * deep-link event (PARITY — Flutter `waitResolution`, attriax_deep_links.dart:46-48).
+     * Returns null when the resolution failed, was withheld, timed out, or [rawEvent]
+     * was never staged for resolution. MUST be called off the main thread (it blocks).
+     */
+    fun waitResolution(rawEvent: AttriaxRawDeepLinkEvent): AttriaxDeepLinkEvent? =
+        engine.waitForDeepLinkResolution(rawEvent)
+
     // -------- manual / dynamic links --------
 
     /**
      * Record a deep link manually (public `recordDeepLink`). Use when your router
      * receives a URI before the SDK captures it. [metadata] is sent with the
-     * resolution request; the resolved event is emitted to observers.
+     * resolution request; the resolved event is emitted to observers AND returned
+     * here (PARITY — Flutter `recordDeepLink` returns the completed event,
+     * attriax_deep_links.dart:90-94). Returns null when the resolve failed, was
+     * withheld by consent, timed out, or the URI was malformed. Performs blocking I/O
+     * — call off the main thread.
      */
     fun recordDeepLink(
         uri: String,
         metadata: Map<String, Any?>? = null,
         source: String = "manual",
-    ) = engine.recordDeepLink(uri, metadata, source)
+    ): AttriaxDeepLinkEvent? = engine.recordDeepLink(uri, metadata, source)
 
     /**
      * Create a short dynamic link (public `createDynamicLink`). Attriax generates
