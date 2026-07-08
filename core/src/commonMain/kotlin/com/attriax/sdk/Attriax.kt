@@ -252,6 +252,9 @@ class Attriax internal constructor(
     /** Public synchronization-state surface (PARITY — observability). */
     val synchronization: AttriaxSynchronization by lazy { AttriaxSynchronization(this) }
 
+    /** Public referrer-query surface (PARITY — referrer query API). */
+    val referrer: AttriaxReferrer by lazy { AttriaxReferrer(this) }
+
     /**
      * Pending resolve-response callbacks keyed by queued-request id (PARITY §6, row
      * DL2). Registered before enqueue; fired from [onRequestDelivered] with the
@@ -283,6 +286,17 @@ class Attriax internal constructor(
             if (handled) store.putString(KEY_DEFERRED_DEEP_LINK_HANDLED, "true")
             else store.remove(KEY_DEFERRED_DEEP_LINK_HANDLED)
         },
+    )
+
+    /**
+     * Backs the public `referrer` query surface (PARITY — referrer query API):
+     * reads the persisted raw/attribution install referrers and tracks the session /
+     * latest deep-link referrers via the deep-link observer stream. Attached in
+     * [init] before the app-open fires so a deferred referrer is captured live.
+     */
+    private val referrerCoordinator = com.attriax.sdk.internal.referrer.AttriaxReferrerCoordinator(
+        store = store,
+        deepLinkManager = deepLinkManager,
     )
 
     val isInitialized: Boolean get() = initialized.value
@@ -329,6 +343,19 @@ class Attriax internal constructor(
     internal fun removeSynchronizationStateListener(listener: AttriaxSynchronizationStateListener) =
         syncState.removeListener(listener)
 
+    // -------- referrer query API — engine methods behind the `referrer` surface --------
+
+    internal val originalInstallReferrer: AttriaxInstallReferrerDetails?
+        get() = referrerCoordinator.originalInstallReferrer()
+    internal val reinstallReferrer: AttriaxInstallReferrerDetails?
+        get() = referrerCoordinator.reinstallReferrer()
+    internal val rawInstallReferrer: String?
+        get() = referrerCoordinator.rawInstallReferrer()
+    internal val latestDeepLinkReferrer: AttriaxDeepLinkReferrerDetails?
+        get() = referrerCoordinator.latestDeepLinkReferrer
+    internal fun sessionReferrer(): AttriaxDeepLinkReferrerDetails? =
+        referrerCoordinator.sessionReferrer()
+
     /**
      * Bootstrap the runtime (PARITY §1 init sequence):
      *  1. restore persisted state,
@@ -347,6 +374,11 @@ class Attriax internal constructor(
         consentManager.restore()
         consentManager.onStateChanged = { onConsentStateChanged() }
         connectivity.register(connectivityListener)
+
+        // Subscribe the referrer coordinator to the deep-link stream BEFORE the
+        // app-open fires, so a deferred deep-link referrer recovered from the
+        // app-open response is captured as the session referrer (PARITY — referrer).
+        referrerCoordinator.attach()
 
         scheduleAppOpenIfNeeded()
 
@@ -822,6 +854,9 @@ class Attriax internal constructor(
                 AttriaxApiRequest.KIND_OPEN -> {
                     val data = decodeResponseObject(response)
                     deepLinkManager.handleDeferredAppOpen(data)
+                    // Persist the attribution records the app-open response returned so
+                    // the referrer getters resolve real data (PARITY — referrer).
+                    referrerCoordinator.handleAppOpenResponse(data)
                 }
                 AttriaxApiRequest.KIND_RESOLVE_DEEP_LINK -> {
                     val callback = synchronized(pendingResolveLock) {
@@ -967,6 +1002,16 @@ class Attriax internal constructor(
         // PASS 3: discard now-disallowed requests (reason gdpr_consent_denied).
         queue.discardWhere { entry ->
             !consentQueuePolicy.isRequestAllowedByResolvedConsent(entry.request)
+        }
+
+        // Attribution now denied → wipe stored install-attribution referrer state so
+        // no install/reinstall attribution stays readable (privacy parity with the
+        // Flutter reference `attriax_runtime.dart:976`, which calls
+        // `prepareForDeniedAttributionState()` in the else branch of the active
+        // runtime state when attribution is denied). The guard above already gates
+        // this to GDPR-enabled + not-waiting, so it never fires prematurely.
+        if (!consentManager.allowsAttributionTracking()) {
+            referrerCoordinator.prepareForDeniedAttributionState()
         }
     }
 
