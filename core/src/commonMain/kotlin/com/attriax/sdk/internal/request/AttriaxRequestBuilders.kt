@@ -26,6 +26,7 @@ object AttriaxRequestBuilders {
         referrerClickTimestampSeconds: Long? = null,
         googlePlayInstantParam: Boolean? = null,
         attestation: Map<String, Any?>? = null,
+        attStatus: String? = null,
         sdkMetadata: Map<String, Any?>? = null,
     ): AttriaxApiRequest {
         // The open DTO (api SdkV1OpenDto) NESTS context under `sdk`/`app`/`device`
@@ -89,6 +90,10 @@ object AttriaxRequestBuilders {
         referrerClickTimestampSeconds?.let { body["referrerClickTimestampSeconds"] = it }
         googlePlayInstantParam?.let { body["googlePlayInstantParam"] = it }
         attestation?.let { body["attestation"] = it }
+        // ATT status (Epic 8.5) is TOP-LEVEL like `attestation` (NOT nested under
+        // `device`). The caller passes the already-resolved wire string or null;
+        // absent (UNKNOWN/omitted) → not emitted.
+        attStatus?.let { body["attStatus"] = it }
         return AttriaxApiRequest(AttriaxApiRequest.KIND_OPEN, AttriaxEndpoints.OPEN, body)
     }
 

@@ -11,6 +11,48 @@ import com.attriax.sdk.internal.consent.AttriaxGdprConsentValues
 class AttriaxConsent internal constructor(engine: Attriax) {
     /** GDPR-specific consent state and actions for the current device. */
     val gdpr: AttriaxGdprConsent = AttriaxGdprConsent(engine)
+
+    /** Apple App Tracking Transparency (ATT) status + request helpers. */
+    val att: AttriaxAttConsent = AttriaxAttConsent(engine)
+}
+
+/**
+ * Apple App Tracking Transparency actions (PARITY §5 — Flutter reference
+ * `AttriaxAttConsent`, `attriax_consent.dart:69-80`).
+ *
+ * ATT is an Apple-only framework, so on every currently-built target
+ * (android/jvm/native) [status] reports the wrapper-supplied value if one was set
+ * (via [AttriaxConfig.attStatus] or [setStatus]), otherwise
+ * [AttriaxAttStatus.UNKNOWN] from the platform seam; [requestAuthorization] is a
+ * no-op returning UNKNOWN. The future iosMain actual (deferred to Mac) wires both
+ * to `ATTrackingManager`.
+ */
+class AttriaxAttConsent internal constructor(private val engine: Attriax) {
+
+    /**
+     * Current ATT status: the wrapper-supplied value if one was set, otherwise the
+     * platform seam (UNKNOWN on every currently-built target). Mirrors Flutter's
+     * `getTrackingAuthorizationStatus()`.
+     */
+    val status: AttriaxAttStatus get() = engine.attStatus
+
+    /**
+     * Wrapper-supply entrypoint: SET the ATT status obtained natively by a host
+     * wrapper (Flutter / Unity / React Native iOS plugin). The engine then reports
+     * it via [status] and emits it (unless UNKNOWN) on the next app-open. This is
+     * the off-iOS bridge that lets a native ATT prompt drive the core.
+     */
+    fun setStatus(status: AttriaxAttStatus) = engine.setAttStatus(status)
+
+    /**
+     * Request ATT authorization (Apple prompt). Mirrors Flutter's
+     * `requestTrackingAuthorization(timeout:)`. Blocking with an optional
+     * [timeoutMs] — call off the main thread. On every currently-built target this
+     * is a no-op returning [AttriaxAttStatus.UNKNOWN]; the future iosMain actual
+     * shows the real prompt. A resolved (non-UNKNOWN) result is latched as [status].
+     */
+    fun requestAuthorization(timeoutMs: Long? = null): AttriaxAttStatus =
+        engine.requestAttAuthorization(timeoutMs)
 }
 
 /**

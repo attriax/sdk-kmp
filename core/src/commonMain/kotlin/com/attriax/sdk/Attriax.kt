@@ -114,6 +114,24 @@ class Attriax internal constructor(
      * by [AttriaxConfig.automaticBrowserHandling] before it is ever called.
      */
     private val browserOpener: AttriaxBrowserOpener = AttriaxBrowserOpener.Unavailable,
+    /**
+     * Apple ATT status seam (PARITY §5). Reads the current tracking-authorization
+     * status WITHOUT prompting. Defaults to the platform `attriaxAttStatus` expect
+     * fun (UNKNOWN on every currently-built target; the future iosMain actual reads
+     * `ATTrackingManager`). Injected so commonTest can substitute a fake. Only
+     * consulted when no wrapper-supplied status is present.
+     */
+    private val attStatusProvider: () -> AttriaxAttStatus =
+        { com.attriax.sdk.internal.attriaxAttStatus() },
+    /**
+     * Apple ATT authorization-request seam (PARITY §5). Prompts for authorization
+     * (Apple) and returns the resulting status; blocking with an optional timeout.
+     * Defaults to the platform `attriaxRequestAttAuthorization` expect fun (a no-op
+     * returning UNKNOWN off-iOS). Injected so commonTest can assert init invokes it
+     * when [AttriaxConfig.requestTrackingAuthorizationOnInit] is `true`.
+     */
+    private val requestAttAuthorizationSeam: (Long?) -> AttriaxAttStatus =
+        { timeoutMs -> com.attriax.sdk.internal.attriaxRequestAttAuthorization(timeoutMs) },
 ) {
     /**
      * Leveled logger (PARITY — Flutter reference `AttriaxLogger`). Constructed once
@@ -244,6 +262,14 @@ class Attriax internal constructor(
 
     @Volatile private var deviceIdentity: ResolvedDeviceId? = null
     @Volatile private var firstLaunch: Boolean = true
+
+    /**
+     * Wrapper-supplied Apple ATT status (PARITY §5). Seeded from
+     * [AttriaxConfig.attStatus]; updated by [setAttStatus] (or a latched
+     * [requestAttAuthorization] result). When non-null it WINS over the platform
+     * seam. See [attStatus] / [resolveAttStatusWire].
+     */
+    @Volatile private var wrapperAttStatus: AttriaxAttStatus? = config.attStatus
 
     private val connectivityListener = ConnectivityMonitor.Listener { scheduleFlush() }
 
@@ -418,6 +444,17 @@ class Attriax internal constructor(
         // app-open fires, so a deferred deep-link referrer recovered from the
         // app-open response is captured as the session referrer (PARITY — referrer).
         referrerCoordinator.attach()
+
+        // Apple ATT (PARITY §5): when requested, resolve the tracking-authorization
+        // status BEFORE the app-open builds so a resolved status rides the open. The
+        // seam is a no-op returning UNKNOWN on every currently-built target (nothing
+        // latched, so the open omits `attStatus`); the future iosMain actual prompts
+        // via ATTrackingManager. A wrapper that drives ATT natively instead supplies
+        // the status via AttriaxConfig.attStatus / consent.att.setStatus and leaves
+        // this flag off.
+        if (config.requestTrackingAuthorizationOnInit) {
+            requestAttAuthorization(config.trackingAuthorizationStatusTimeoutMs)
+        }
 
         scheduleAppOpenIfNeeded()
 
@@ -954,6 +991,43 @@ class Attriax internal constructor(
     /** UTC ISO-8601 timestamp for the current clock reading (exposed to [tracking]). */
     internal fun nowIsoNow(): String = nowIso()
 
+    // -------- ATT (PARITY §5) — engine methods behind the `consent.att` surface --------
+
+    /**
+     * Resolved ATT status: the wrapper-supplied value if one is present, otherwise
+     * the platform seam (UNKNOWN on every currently-built target). Backs
+     * `consent.att.status`.
+     */
+    internal val attStatus: AttriaxAttStatus get() = wrapperAttStatus ?: attStatusProvider()
+
+    /** Wrapper-supply setter for the natively-obtained ATT status. */
+    internal fun setAttStatus(status: AttriaxAttStatus) {
+        wrapperAttStatus = status
+    }
+
+    /**
+     * Request ATT authorization via the seam, latching a resolved (non-UNKNOWN)
+     * result as the wrapper-supplied status so a subsequent app-open / [attStatus]
+     * read reports it. UNKNOWN (the off-iOS no-op result) is NOT latched, so it
+     * never clobbers a real wrapper-supplied status.
+     */
+    internal fun requestAttAuthorization(timeoutMs: Long?): AttriaxAttStatus {
+        val result = requestAttAuthorizationSeam(timeoutMs)
+        if (result != AttriaxAttStatus.UNKNOWN) {
+            wrapperAttStatus = result
+        }
+        return result
+    }
+
+    /**
+     * The resolved ATT status as the wire string for the app-open, or `null` when it
+     * should be OMITTED. UNKNOWN (non-Apple / unresolved) → omit; every real status
+     * → its 1:1 wire value (Epic 8.5; mirrors the Flutter omit rule where the
+     * non-applicable cases attach nothing).
+     */
+    internal fun resolveAttStatusWire(): String? =
+        attStatus.takeIf { it != AttriaxAttStatus.UNKNOWN }?.wireValue
+
     // -------- consent (PARITY §5) — engine methods behind the `consent.gdpr` surface --------
 
     internal val gdprConsentState: AttriaxGdprConsentState get() = consentManager.gdprConsentState
@@ -1162,6 +1236,7 @@ class Attriax internal constructor(
             referrerClickTimestampSeconds = referrer?.referrerClickTimestampSeconds,
             googlePlayInstantParam = referrer?.googlePlayInstantParam,
             attestation = attestation,
+            attStatus = resolveAttStatusWire(),
             sdkMetadata = config.sdkMetadata,
         )
         enqueue(open)

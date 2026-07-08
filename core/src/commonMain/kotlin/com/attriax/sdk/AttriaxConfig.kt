@@ -83,6 +83,35 @@ data class AttriaxConfig(
      * on Android; a documented no-op on jvm/native until desktop browser-open lands).
      */
     val automaticBrowserHandling: Boolean = true,
+    /**
+     * Wrapper-supplied Apple ATT (App Tracking Transparency) status (Epic 8.5,
+     * PARITY §5 — `consent.att`). ATT is an Apple-only framework the KMP core
+     * cannot query off-iOS, so a host wrapper (Flutter / Unity / React Native iOS
+     * plugin) that already obtained the status via `ATTrackingManager` supplies it
+     * here (or at runtime via [AttriaxAttConsent] / [com.attriax.sdk.Attriax]).
+     * `null` (the default) → the engine falls back to the platform ATT seam, which
+     * reports [AttriaxAttStatus.UNKNOWN] on every currently-built target and is
+     * therefore OMITTED from the app-open. A wrapper-supplied non-UNKNOWN status is
+     * emitted TOP-LEVEL as `attStatus` (mirrors `attestation`).
+     */
+    val attStatus: AttriaxAttStatus? = null,
+    /**
+     * Whether the SDK requests Apple ATT authorization on init (PARITY — Flutter
+     * `AttriaxConfig.requestTrackingAuthorizationOnInit`,
+     * types_session_config.dart:117/181). DEFAULT-OFF, matching Flutter. When
+     * `true`, [com.attriax.sdk.Attriax.init] invokes the ATT request seam (a no-op
+     * returning [AttriaxAttStatus.UNKNOWN] on every currently-built target; the
+     * future iosMain actual prompts via `ATTrackingManager`).
+     */
+    val requestTrackingAuthorizationOnInit: Boolean = false,
+    /**
+     * Timeout (ms) for resolving the Apple ATT authorization status on init
+     * (PARITY — Flutter `AttriaxConfig.trackingAuthorizationStatusTimeout`,
+     * types_session_config.dart:118/184, a `Duration` defaulting to 60s). Expressed
+     * in milliseconds here to keep [AttriaxConfig] time-library-free; default
+     * `60_000` matches Flutter's 60-second default. Passed to the ATT request seam.
+     */
+    val trackingAuthorizationStatusTimeoutMs: Long = 60_000L,
 ) {
     init {
         require(maxQueueSize > 0) { "maxQueueSize must be positive" }

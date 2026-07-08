@@ -445,6 +445,29 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
         engine.enqueueRequest(request, flushImmediately = false)
     }
 
+    /**
+     * Register (or, with a null token, de-register) the Apple APNs uninstall-tracking
+     * token (PARITY — Flutter `AttriaxTracking.registerApplePushToken`,
+     * `attriax_tracking.dart:299-302`). Same wire as
+     * [registerFirebaseMessagingToken] with `provider = "apns"`. The APNs token is
+     * supplied by the host wrapper / iOS layer; sending it off-iOS is harmless (the
+     * server keys on the provider slug).
+     */
+    fun registerApplePushToken(token: String?, metadata: Map<String, Any?>? = null) {
+        if (!engine.isTrackingEnabled) return
+        val deviceId = engine.resolvedDeviceId ?: return
+        val request = AttriaxRequestBuilders.buildUninstallToken(
+            projectToken = projectToken(),
+            deviceId = deviceId,
+            deviceIdSource = engine.resolvedDeviceIdSource,
+            platform = engine.contextSnapshot.platform,
+            provider = UNINSTALL_TOKEN_PROVIDER_APNS,
+            token = AttriaxRevenue.trimOrNull(token),
+            metadata = metadata,
+        )
+        engine.enqueueRequest(request, flushImmediately = false)
+    }
+
     // -------- internals --------
 
     private fun enqueueUserUpdate(
@@ -490,5 +513,6 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
 
     private companion object {
         const val UNINSTALL_TOKEN_PROVIDER_FCM = "fcm"
+        const val UNINSTALL_TOKEN_PROVIDER_APNS = "apns"
     }
 }
