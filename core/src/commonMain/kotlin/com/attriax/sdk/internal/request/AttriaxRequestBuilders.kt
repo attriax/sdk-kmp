@@ -440,4 +440,16 @@ object AttriaxRequestBuilders {
         test?.let { body["test"] = it }
         return body
     }
+
+    /**
+     * Apple Search Ads (AdServices) token capture body (Epic 8.5) — mirrors the api
+     * FROZEN CONTRACT `POST /api/sdk/v1/asa/token` `{ projectToken, token }` exactly
+     * (`SdkAsaTokenDto`). No other fields; field names must not change.
+     */
+    fun buildAsaTokenBody(projectToken: String, token: String): Map<String, Any?> {
+        val body = LinkedHashMap<String, Any?>()
+        body["projectToken"] = projectToken
+        body["token"] = token
+        return body
+    }
 }

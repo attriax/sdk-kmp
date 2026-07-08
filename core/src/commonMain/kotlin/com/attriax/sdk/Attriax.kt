@@ -132,6 +132,35 @@ class Attriax internal constructor(
      */
     private val requestAttAuthorizationSeam: (Long?) -> AttriaxAttStatus =
         { timeoutMs -> com.attriax.sdk.internal.attriaxRequestAttAuthorization(timeoutMs) },
+    /**
+     * SKAdNetwork support probe seam (Epic 8.5). Defaults to the platform
+     * `attriaxSkanSupported` expect fun (`false` on every currently-built target; the
+     * future iosMain actual returns `true`). Injected so commonTest can simulate iOS.
+     */
+    private val skanSupportedSeam: () -> Boolean =
+        { com.attriax.sdk.internal.attriaxSkanSupported() },
+    /**
+     * On-device SKAN conversion-value update seam (Epic 8.5). Defaults to the platform
+     * `attriaxUpdatePostbackConversionValue` expect fun (NOT_SUPPORTED off-iOS; the
+     * future iosMain actual calls StoreKit `updatePostbackConversionValue`). Injected
+     * so commonTest can assert the facade reaches it with the resolved fine/coarse/lock.
+     */
+    private val updatePostbackConversionValueSeam: (
+        fineValue: Int,
+        coarseValue: AttriaxSkanCoarseValue,
+        lockWindow: Boolean,
+    ) -> AttriaxSkanUpdateResult =
+        { fineValue, coarseValue, lockWindow ->
+            com.attriax.sdk.internal.attriaxUpdatePostbackConversionValue(fineValue, coarseValue, lockWindow)
+        },
+    /**
+     * Apple Search Ads (AdServices) attribution-token fetch seam (Epic 8.5). Defaults
+     * to the platform `attriaxFetchAsaAttributionToken` expect fun (`null` off-iOS; the
+     * future iosMain actual calls `AAAttribution.attributionToken`). Injected so
+     * commonTest can drive the auto-capture path with a fake token.
+     */
+    private val asaTokenFetchSeam: () -> String? =
+        { com.attriax.sdk.internal.attriaxFetchAsaAttributionToken() },
 ) {
     /**
      * Leveled logger (PARITY — Flutter reference `AttriaxLogger`). Constructed once
@@ -255,6 +284,33 @@ class Attriax internal constructor(
         logError = { logger.warn(it) },
     )
 
+    /**
+     * SKAdNetwork conversion-value engine (Epic 8.5). Pure over the support + on-device
+     * update seams; StoreKit passthrough (no local rules engine — see [AttriaxSkan]).
+     * Config `enabled` gates updates; off-iOS the seams report unsupported.
+     */
+    private val skanEngine = com.attriax.sdk.internal.skan.AttriaxSkanEngine(
+        config = config.skan ?: AttriaxSkanConfig(),
+        supported = skanSupportedSeam,
+        performUpdate = updatePostbackConversionValueSeam,
+    )
+
+    /**
+     * Apple Search Ads (AdServices) token capture (Epic 8.5). Best-effort + fully
+     * fault-isolated (mirrors the Flutter reference): the auto path fetches the token
+     * via the platform seam (null off-iOS → no submission) and POSTs `{projectToken,
+     * token}`; the wrapper-supply [submitAsaToken] POSTs an explicitly supplied token
+     * on any platform. A send failure never affects init or session.
+     */
+    private val asaTokenManager = com.attriax.sdk.internal.asa.AttriaxAsaTokenManager(
+        enabled = config.asaTokenCaptureEnabled,
+        acquireToken = asaTokenFetchSeam,
+        sendToken = { token -> postAsaToken(token) },
+        logError = { error ->
+            logger.warn("Apple Search Ads token capture failed; continuing without a report: ${error.message}")
+        },
+    )
+
     private val initialized = atomic(false)
     private val appOpenScheduled = atomic(false)
     private val enabledFlag = atomic(true)
@@ -287,6 +343,9 @@ class Attriax internal constructor(
 
     /** Public referrer-query surface (PARITY — referrer query API). */
     val referrer: AttriaxReferrer by lazy { AttriaxReferrer(this) }
+
+    /** Public SKAdNetwork surface (Epic 8.5). Apple-only; no-op off-iOS. */
+    val skan: AttriaxSkan by lazy { AttriaxSkan(this) }
 
     /**
      * Pending resolve-response callbacks keyed by queued-request id (PARITY §6, row
@@ -457,6 +516,12 @@ class Attriax internal constructor(
         }
 
         scheduleAppOpenIfNeeded()
+
+        // Apple Search Ads (AdServices) token capture (Epic 8.5) — iOS-only,
+        // best-effort, fault-isolated. Off the init thread; the fetch seam returns null
+        // off-iOS so this never submits anything on the currently-built targets. Gated
+        // by config + attribution consent (mirrors the Flutter reference).
+        scheduleAsaTokenCaptureIfNeeded()
 
         // Session lifecycle (PARITY §3, rows S2–S5): restore/continue-or-start the
         // session snapshot, seed the initial START / recovered END telemetry, and
@@ -1027,6 +1092,65 @@ class Attriax internal constructor(
      */
     internal fun resolveAttStatusWire(): String? =
         attStatus.takeIf { it != AttriaxAttStatus.UNKNOWN }?.wireValue
+
+    // -------- SKAdNetwork (Epic 8.5) — engine methods behind the `skan` surface --------
+
+    /** Locally tracked SKAN state (passthrough subset), or null off-iOS. Backs `skan.state`. */
+    internal val skanState: AttriaxSkanState? get() = skanEngine.currentState
+
+    /**
+     * Manual SKAN conversion-value update (Epic 8.5). Delegates to the pure engine,
+     * which validates + applies the monotonic rules and pushes an advancing value to
+     * StoreKit via the on-device seam. Backs `skan.updateConversionValue`.
+     */
+    internal fun updateSkanConversionValue(
+        fineValue: Int,
+        coarseValue: AttriaxSkanCoarseValue?,
+        lockWindow: Boolean,
+    ): AttriaxSkanUpdateResult =
+        skanEngine.updateConversionValue(fineValue, coarseValue, lockWindow)
+
+    // -------- Apple Search Ads (AdServices) token capture (Epic 8.5) --------
+
+    /**
+     * Wrapper-supply entrypoint: submit an Apple Search Ads (AdServices) attribution
+     * token a host wrapper (Flutter / Unity / React Native iOS plugin) fetched natively
+     * via `AAAttribution.attributionToken`. POSTs `{projectToken, token}` to
+     * `/api/sdk/v1/asa/token` on ANY platform (the auto-capture seam only runs on iOS).
+     * Best-effort: a blank token is ignored and any send failure is swallowed. Performs
+     * blocking network I/O — call off the main thread.
+     */
+    fun submitAsaToken(token: String) = asaTokenManager.submit(token)
+
+    /**
+     * Build + POST the ASA token wire. Best-effort — the transport throws on non-2xx,
+     * which the [asaTokenManager] catches (never breaking init/session).
+     */
+    private fun postAsaToken(token: String) {
+        transport.post(
+            AttriaxEndpoints.ASA_TOKEN,
+            com.attriax.sdk.internal.json.Json.encode(
+                AttriaxRequestBuilders.buildAsaTokenBody(
+                    projectToken = config.normalizedProjectToken,
+                    token = token,
+                ),
+            ),
+        )
+    }
+
+    /**
+     * Fire the best-effort ASA token auto-capture once at init (Epic 8.5), gated by
+     * [AttriaxConfig.asaTokenCaptureEnabled] AND attribution consent (mirrors Flutter's
+     * `_allowsAttributionTracking` gate). Runs off the init thread on the flush executor
+     * because it performs blocking network I/O. The fetch seam returns null off-iOS, so
+     * this degrades to a silent no-op everywhere but iOS.
+     */
+    private fun scheduleAsaTokenCaptureIfNeeded() {
+        if (!config.asaTokenCaptureEnabled) return
+        if (!allowsAppOpenDispatch()) return
+        if (flushExecutor.isShutdown) return
+        flushExecutor.execute { asaTokenManager.captureAndReportIfNeeded() }
+    }
 
     // -------- consent (PARITY §5) — engine methods behind the `consent.gdpr` surface --------
 

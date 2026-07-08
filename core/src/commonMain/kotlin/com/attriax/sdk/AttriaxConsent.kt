@@ -5,8 +5,8 @@ import com.attriax.sdk.internal.consent.AttriaxGdprConsentValues
 
 /**
  * Regulation-scoped consent surface exposed as `attriax.consent` (PARITY §5).
- * Currently hosts the GDPR helpers under [gdpr]; ATT/SKAN are iOS-only and are
- * not mirrored here (PARITY "Do NOT over-port").
+ * Hosts the GDPR helpers under [gdpr] and the Apple ATT helpers under [att]. SKAN is
+ * a separate Apple surface exposed as `attriax.skan` (see [AttriaxSkan]), not here.
  */
 class AttriaxConsent internal constructor(engine: Attriax) {
     /** GDPR-specific consent state and actions for the current device. */

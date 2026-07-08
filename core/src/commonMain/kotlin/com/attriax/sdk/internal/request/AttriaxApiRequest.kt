@@ -19,6 +19,9 @@ object AttriaxEndpoints {
     const val REVENUE_CONVERT = "/api/sdk/v1/revenue/convert-to-usd"
     const val CONFIG = "/api/sdk/v1/config"
     const val ATTESTATION_CHALLENGE = "/api/sdk/attestation/challenge"
+
+    /** Apple Search Ads (AdServices) token capture — FROZEN CONTRACT (Epic 8.5). */
+    const val ASA_TOKEN = "/api/sdk/v1/asa/token"
 }
 
 /**

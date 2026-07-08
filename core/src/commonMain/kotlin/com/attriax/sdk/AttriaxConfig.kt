@@ -112,6 +112,30 @@ data class AttriaxConfig(
      * `60_000` matches Flutter's 60-second default. Passed to the ATT request seam.
      */
     val trackingAuthorizationStatusTimeoutMs: Long = 60_000L,
+    /**
+     * SKAdNetwork (SKAN) configuration (Epic 8.5, PARITY — Flutter `AttriaxConfig.skan`,
+     * a nullable `AttriaxSkanConfig`). `null` (the default) resolves to a default
+     * [AttriaxSkanConfig] (`enabled = true`), matching Flutter's
+     * `_config.skan ?? const AttriaxSkanConfig()`. `enabled = false` makes
+     * `attriax.skan.updateConversionValue` return
+     * [AttriaxSkanUpdateStatus.DISABLED]. SKAN is Apple-only, so off-iOS this is inert
+     * regardless (the platform seam reports SKAN unsupported → NOT_SUPPORTED).
+     */
+    val skan: AttriaxSkanConfig? = null,
+    /**
+     * Whether the SDK auto-captures the Apple Search Ads (AdServices) attribution token
+     * on init and POSTs it to `/api/sdk/v1/asa/token` (Epic 8.5). DEFAULT-ON.
+     *
+     * NOTE (default difference): the Flutter reference has NO dedicated ASA flag — it
+     * always attempts capture on init on iOS, gated only by attribution consent. The
+     * KMP core adds this explicit flag (default `true` = equivalent always-on behavior)
+     * so a host can opt out; the auto-capture is additionally gated by attribution
+     * consent, matching Flutter. The AdServices token is Apple-only, so off-iOS the
+     * fetch seam returns `null` and nothing is sent regardless of this flag. A wrapper
+     * can always submit a natively-fetched token via
+     * [com.attriax.sdk.Attriax.submitAsaToken] irrespective of this flag.
+     */
+    val asaTokenCaptureEnabled: Boolean = true,
 ) {
     init {
         require(maxQueueSize > 0) { "maxQueueSize must be positive" }
