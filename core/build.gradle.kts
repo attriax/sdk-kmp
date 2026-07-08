@@ -6,6 +6,10 @@ plugins {
 }
 
 kotlin {
+    // Auto-creates the intermediate source sets (nativeMain shared by mingwX64 +
+    // linuxX64, appleMain later for iOS/macOS, etc.).
+    applyDefaultHierarchyTemplate()
+
     // JVM-family targets: Android (AAR) + a plain JVM (desktop hosts that embed a
     // JVM, and the fast commonTest runner).
     androidTarget {
@@ -14,12 +18,17 @@ kotlin {
     jvm()
 
     // Native desktop targets buildable on this Windows host. macOS + iOS targets
-    // are added when at the Mac (they require Xcode); ignoreDisabledTargets keeps
-    // the build green here.
+    // are added at the Mac (they require Xcode); ignoreDisabledTargets keeps the
+    // build green here.
     mingwX64()
     linuxX64()
 
     sourceSets {
+        commonMain.dependencies {
+            // Multiplatform clock + ISO-8601 formatting — replaces JVM
+            // System.currentTimeMillis / SimpleDateFormat in the shared core.
+            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
+        }
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
