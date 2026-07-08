@@ -2,7 +2,6 @@ package com.attriax.sdk
 
 import com.attriax.sdk.internal.AttriaxRevenue
 import com.attriax.sdk.internal.attriaxExceptionName
-import com.attriax.sdk.internal.attriaxLogError
 import com.attriax.sdk.internal.request.AttriaxRequestBuilders
 
 /**
@@ -485,8 +484,8 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
      */
     private fun normalizeRevenueCurrency(revenue: Double, currency: String): AttriaxRevenue.NormalizedRevenue {
         if (!AttriaxRevenue.isValidCurrency(currency)) {
-            attriaxLogError(
-                "[Attriax][WARNING] Invalid revenue currency \"$currency\"; defaulting revenue to 0 USD.",
+            engine.logger.warn(
+                "Invalid revenue currency \"$currency\"; defaulting revenue to 0 USD.",
             )
         }
         return AttriaxRevenue.normalizeRevenueCurrency(revenue, currency)

@@ -38,3 +38,9 @@ internal expect fun attriaxExceptionName(e: Throwable): String
 
 /** Emit a diagnostic error line (replaces `System.err.println`). */
 internal expect fun attriaxLogError(message: String)
+
+/**
+ * Emit a non-error diagnostic line (debug/info levels). Routed to stdout so it is
+ * distinct from the [attriaxLogError] stderr channel and stays dependency-free.
+ */
+internal expect fun attriaxLogInfo(message: String)

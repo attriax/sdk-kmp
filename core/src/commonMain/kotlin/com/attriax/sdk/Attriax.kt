@@ -5,6 +5,8 @@ import com.attriax.sdk.internal.AttriaxClock
 import com.attriax.sdk.internal.AttriaxContextSnapshot
 import com.attriax.sdk.internal.AttriaxDeviceIdentityStore
 import com.attriax.sdk.internal.AttriaxIso8601
+import com.attriax.sdk.internal.AttriaxLogger
+import com.attriax.sdk.internal.AttriaxSynchronizationStateHolder
 import com.attriax.sdk.internal.ConnectivityMonitor
 import com.attriax.sdk.internal.HttpClient
 import com.attriax.sdk.internal.KeyValueStore
@@ -93,6 +95,28 @@ class Attriax internal constructor(
      */
     private val consentExecutor: AttriaxBackgroundExecutor = attriaxBackgroundExecutor("attriax-consent"),
 ) {
+    /**
+     * Leveled logger (PARITY — Flutter reference `AttriaxLogger`). Constructed once
+     * from [AttriaxConfig.enableDebugLogs] and shared with the public surfaces (the
+     * tracking surface logs invalid-currency warnings through it).
+     */
+    internal val logger = AttriaxLogger(config.enableDebugLogs)
+
+    /**
+     * Runtime synchronization state (PARITY — Flutter reference `AttriaxSynchronizer`).
+     * The engine drives it from the real dispatch lifecycle below (flush entry/exit,
+     * terminal drops, consent-defer gate, enabled/reset). Exposed via [synchronization].
+     */
+    private val syncState = AttriaxSynchronizationStateHolder()
+
+    /**
+     * Set (during a flush, by the dispatcher `onDropped` callback) when a request is
+     * permanently dropped this flush pass, so [resolveSynchronizationStateAfterFlush]
+     * can report [AttriaxSynchronizationState.FAILED]. Reset at each flush entry. Only
+     * touched on the single-threaded flush executor.
+     */
+    private val terminalDropDuringFlush = atomic(false)
+
     private val queue = AttriaxQueueManager(store, config.maxQueueSize)
     private val dispatcher = AttriaxDispatcher(
         queue = queue,
@@ -103,6 +127,7 @@ class Attriax internal constructor(
         onSessionKeepAliveDelivered = { sessionId, occurredAtMs ->
             sessionLifecycleManager.handleSuccessfulForegroundFlush(sessionId, occurredAtMs)
         },
+        onDropped = { _, _ -> terminalDropDuringFlush.value = true },
     )
 
     // -------- session lifecycle (PARITY §3, rows S2–S5) --------
@@ -187,6 +212,9 @@ class Attriax internal constructor(
     /** Public deep-link surface (PARITY §6). */
     val deepLinks: AttriaxDeepLinks by lazy { AttriaxDeepLinks(this) }
 
+    /** Public synchronization-state surface (PARITY — observability). */
+    val synchronization: AttriaxSynchronization by lazy { AttriaxSynchronization(this) }
+
     /**
      * Pending resolve-response callbacks keyed by queued-request id (PARITY §6, row
      * DL2). Registered before enqueue; fired from [onRequestDelivered] with the
@@ -226,7 +254,12 @@ class Attriax internal constructor(
 
     var enabled: Boolean
         get() = enabledFlag.value
-        set(value) { enabledFlag.value = value }
+        set(value) {
+            enabledFlag.value = value
+            // Reflect a disable immediately (PARITY — Flutter `deactivate` →
+            // `disabled`); re-enable is resolved by the next flush.
+            if (!value) syncState.set(AttriaxSynchronizationState.DISABLED)
+        }
 
     /**
      * GDPR-safe anonymous-tracking toggle (PARITY §4/§5). The consent-driven
@@ -247,6 +280,17 @@ class Attriax internal constructor(
     internal val resolvedDeviceIdSource: String? get() = deviceIdentity?.source
     internal val isTrackingEnabled: Boolean get() = enabledFlag.value
     internal val projectTokenForTracking: String get() = config.normalizedProjectToken
+
+    // -------- synchronization state (PARITY — observability) — behind `synchronization` --------
+
+    internal val isSynchronized: Boolean get() = syncState.isSynchronized
+    internal val synchronizationState: AttriaxSynchronizationState get() = syncState.state
+
+    internal fun addSynchronizationStateListener(listener: AttriaxSynchronizationStateListener) =
+        syncState.addListener(listener)
+
+    internal fun removeSynchronizationStateListener(listener: AttriaxSynchronizationStateListener) =
+        syncState.removeListener(listener)
 
     /**
      * Bootstrap the runtime (PARITY §1 init sequence):
@@ -454,7 +498,12 @@ class Attriax internal constructor(
             // Buffer locally (no flush) when network dispatch must be deferred by
             // consent; otherwise flush now (immediate) or arm the coalesced periodic
             // flush (non-immediate → drains after eventFlushIntervalMs). PARITY §7.
-            if (!decision.deferNetwork) scheduleFlushOrDefer(flushImmediately)
+            if (!decision.deferNetwork) {
+                scheduleFlushOrDefer(flushImmediately)
+            } else {
+                // Consent defers network dispatch (PARITY — deferred synchronization).
+                syncState.set(AttriaxSynchronizationState.DEFERRED)
+            }
             return true
         }
 
@@ -648,7 +697,11 @@ class Attriax internal constructor(
             ),
         )
         // Deep-link resolve is anon-capable; flush unless network dispatch is deferred.
-        if (!decision.deferNetwork) scheduleFlush()
+        if (!decision.deferNetwork) {
+            scheduleFlush()
+        } else {
+            syncState.set(AttriaxSynchronizationState.DEFERRED)
+        }
     }
 
     /**
@@ -832,6 +885,8 @@ class Attriax internal constructor(
         firstLaunch = true
         appOpenScheduled.value = false
         initialized.value = false
+        // Back to pre-init (PARITY — Flutter synchronizer `reset` → `initializing`).
+        syncState.set(AttriaxSynchronizationState.INITIALIZING)
     }
 
     fun dispose() {
@@ -910,7 +965,12 @@ class Attriax internal constructor(
         // Enqueue always (so it is reconciled/hoisted later), but only flush it to
         // the network once attribution tracking is actually allowed — otherwise it
         // buffers until consent resolves (PARITY §3/§5).
-        if (allowsAppOpenDispatch()) scheduleFlush()
+        if (allowsAppOpenDispatch()) {
+            scheduleFlush()
+        } else {
+            // App-open buffered pending attribution consent (PARITY — deferred).
+            syncState.set(AttriaxSynchronizationState.DEFERRED)
+        }
     }
 
     /** Whether the app-open may be dispatched under the current consent state. */
@@ -970,15 +1030,56 @@ class Attriax internal constructor(
         // An immediate flush supersedes any pending coalesced flush (PARITY §7 —
         // Flutter `scheduleFlush` cancels `_deferredFlushTimer`).
         cancelDeferredFlush()
-        if (!isEnabled()) return
+        if (!isEnabled()) {
+            // Tracking disabled / project token empty (PARITY — disabled synchronization).
+            syncState.set(AttriaxSynchronizationState.DISABLED)
+            return
+        }
         if (flushExecutor.isShutdown) return
         flushExecutor.execute {
+            // A flush has begun (PARITY — Flutter synchronizer sets `synchronizing`
+            // on enqueue / connectivity restore before draining the queue).
+            syncState.set(AttriaxSynchronizationState.SYNCHRONIZING)
+            terminalDropDuringFlush.value = false
             try {
                 dispatcher.flush()
             } catch (e: Exception) {
                 // Best-effort; a flush failure must never crash the host app.
             }
+            resolveSynchronizationStateAfterFlush()
         }
+    }
+
+    /**
+     * Resolve the terminal synchronization state after a flush pass (PARITY —
+     * Flutter synchronizer `_flushQueueAndRefreshSynchronization`, adapted to the
+     * KMP dispatcher's structure):
+     *
+     *  * tracking disabled → [AttriaxSynchronizationState.DISABLED];
+     *  * a request was permanently dropped this pass → [AttriaxSynchronizationState.FAILED];
+     *  * the queue is empty → [AttriaxSynchronizationState.SYNCHRONIZED];
+     *  * items remain and one carries a transport failure (`lastErrorClass`) →
+     *    [AttriaxSynchronizationState.OFFLINE] (KMP has no push-based connectivity-lost
+     *    signal, so a lost connection surfaces as a transport failure that leaves the
+     *    queue non-empty);
+     *  * items remain without a failure → [AttriaxSynchronizationState.DEFERRED].
+     */
+    private fun resolveSynchronizationStateAfterFlush() {
+        if (!isEnabled()) {
+            syncState.set(AttriaxSynchronizationState.DISABLED)
+            return
+        }
+        if (terminalDropDuringFlush.value) {
+            syncState.set(AttriaxSynchronizationState.FAILED)
+            return
+        }
+        val pending = queue.readAll()
+        val next = when {
+            pending.isEmpty() -> AttriaxSynchronizationState.SYNCHRONIZED
+            pending.any { it.lastErrorClass != null } -> AttriaxSynchronizationState.OFFLINE
+            else -> AttriaxSynchronizationState.DEFERRED
+        }
+        syncState.set(next)
     }
 
     private fun isEnabled(): Boolean = enabledFlag.value && config.normalizedProjectToken.isNotEmpty()

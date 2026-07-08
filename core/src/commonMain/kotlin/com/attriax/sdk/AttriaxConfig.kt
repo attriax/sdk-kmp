@@ -28,6 +28,15 @@ data class AttriaxConfig(
      * clientRuntime key — that stays a per-wrapper concern).
      */
     val sdkMetadata: Map<String, Any?>? = null,
+    /**
+     * Whether verbose (debug/info) SDK logging is emitted (PARITY — Flutter
+     * `AttriaxConfig.enableDebugLogs`, types_session_config.dart:159). Warnings and
+     * errors always emit; debug/info are gated behind this flag. Flutter's field is
+     * nullable and resolves to `kDebugMode` (on in debug builds, off in release); the
+     * KMP core has no build-mode concept, so it defaults to `false`
+     * (release-equivalent). Set `true` to surface diagnostics.
+     */
+    val enableDebugLogs: Boolean = false,
     val requestTimeoutMs: Long = 12_000L,
     val maxQueueSize: Int = 500,
     val eventFlushIntervalMs: Long = 60_000L,

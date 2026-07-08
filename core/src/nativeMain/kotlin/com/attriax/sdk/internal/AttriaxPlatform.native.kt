@@ -35,3 +35,7 @@ internal actual fun attriaxExceptionName(e: Throwable): String =
 internal actual fun attriaxLogError(message: String) {
     println(message)
 }
+
+internal actual fun attriaxLogInfo(message: String) {
+    println(message)
+}
