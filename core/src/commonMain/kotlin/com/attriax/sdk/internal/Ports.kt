@@ -91,6 +91,16 @@ interface AttriaxScheduler {
 
     /** Run [action] every [intervalMs] (first tick after one interval). */
     fun schedulePeriodic(intervalMs: Long, action: () -> Unit): ScheduledHandle
+
+    /**
+     * Run [action] ONCE after [delayMs] (a coalesced deferred flush; PARITY §7).
+     * Mirrors the Flutter synchronizer's one-shot `Timer` used by
+     * `_scheduleDeferredFlush`: the engine arms a single pending flush after the
+     * configured `eventFlushInterval` and re-arms it after it fires; [cancel] on the
+     * returned handle drops the pending tick. Off the main thread like
+     * [schedulePeriodic].
+     */
+    fun scheduleOnce(delayMs: Long, action: () -> Unit): ScheduledHandle
 }
 
 /**

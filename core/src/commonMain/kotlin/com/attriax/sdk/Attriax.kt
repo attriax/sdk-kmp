@@ -196,6 +196,17 @@ class Attriax internal constructor(
     private val pendingResolveLock = SynchronizedObject()
     private val pendingResolveCallbacks = mutableMapOf<String, (Map<String, Any?>?) -> Unit>()
 
+    /**
+     * Coalesced periodic-flush timer (PARITY §7 — Flutter synchronizer
+     * `_deferredFlushTimer`/`_scheduleDeferredFlush`). A single one-shot handle armed
+     * when a NON-immediate request is enqueued (and not deferred by consent); it
+     * drains the queue one `config.eventFlushIntervalMs` later. Never stacks — a
+     * pending handle short-circuits re-arming, and an immediate [scheduleFlush]
+     * cancels it. Guarded by [deferredFlushLock].
+     */
+    private val deferredFlushLock = SynchronizedObject()
+    @Volatile private var deferredFlushHandle: com.attriax.sdk.internal.AttriaxScheduler.ScheduledHandle? = null
+
     /** Deep-link runtime coordinator (dedup / initial-link probe / deferred). */
     private val deepLinkManager = com.attriax.sdk.internal.deeplink.AttriaxDeepLinkManager(
         nowMs = { clock.nowMs() },
@@ -330,7 +341,21 @@ class Attriax internal constructor(
             sessionRelativeTimeMs = session?.sessionRelativeTimeMs(occurredAtMs),
             clientOccurredAtIso = nowIso(),
         )
-        enqueueRequest(request, flushImmediately)
+        enqueueRequest(request, shouldFlushEventImmediately(flushImmediately))
+    }
+
+    /**
+     * First-launch eager-flush decision (PARITY §7 — Flutter tracking-manager
+     * `_shouldFlushEventImmediately`, attriax_tracking_manager.dart:365-376). An
+     * explicit `flushImmediately` always wins; otherwise, on the FIRST launch and
+     * when [AttriaxConfig.flushEventsImmediatelyOnFirstLaunch] is set, the event is
+     * flushed eagerly instead of buffering to the periodic timer. Applies only to
+     * the event-family signals Flutter routes through it (events / page views /
+     * notifications) — NOT crashes, identify, session, or app-open.
+     */
+    internal fun shouldFlushEventImmediately(flushImmediately: Boolean): Boolean {
+        if (flushImmediately) return true
+        return config.flushEventsImmediatelyOnFirstLaunch && firstLaunch
     }
 
     /**
@@ -426,8 +451,10 @@ class Attriax internal constructor(
                 AttriaxConsentRequestRewrites.anonymize(request)
             }
             enqueue(toEnqueue)
-            // Buffer locally (no flush) when network dispatch must be deferred.
-            if (flushImmediately && !decision.deferNetwork) scheduleFlush()
+            // Buffer locally (no flush) when network dispatch must be deferred by
+            // consent; otherwise flush now (immediate) or arm the coalesced periodic
+            // flush (non-immediate → drains after eventFlushIntervalMs). PARITY §7.
+            if (!decision.deferNetwork) scheduleFlushOrDefer(flushImmediately)
             return true
         }
 
@@ -441,7 +468,7 @@ class Attriax internal constructor(
         }
         if (!allowed) return false
         enqueue(request)
-        if (flushImmediately) scheduleFlush()
+        scheduleFlushOrDefer(flushImmediately)
         return true
     }
 
@@ -793,6 +820,7 @@ class Attriax internal constructor(
         lifecycleBinder.unbind()
         sessionLifecycleManager.reset()
         sessionManager.reset()
+        cancelDeferredFlush()
         deviceIdentityStore.clear()
         store.remove(KEY_FIRST_LAUNCH)
         store.remove(KEY_DEFERRED_DEEP_LINK_HANDLED)
@@ -809,6 +837,7 @@ class Attriax internal constructor(
     fun dispose() {
         lifecycleBinder.unbind()
         sessionLifecycleManager.deactivate()
+        cancelDeferredFlush()
         connectivity.unregister(connectivityListener)
         flushExecutor.shutdown()
         consentExecutor.shutdown()
@@ -874,6 +903,7 @@ class Attriax internal constructor(
             referrerClickTimestampSeconds = referrer?.referrerClickTimestampSeconds,
             googlePlayInstantParam = referrer?.googlePlayInstantParam,
             attestation = attestation,
+            sdkMetadata = config.sdkMetadata,
         )
         enqueue(open)
         // App-open carries attribution/install-referrer data (attribution-linked).
@@ -897,7 +927,49 @@ class Attriax internal constructor(
         )
     }
 
+    /**
+     * Flush now when [flushImmediately], else arm the coalesced periodic flush
+     * (PARITY §7 — Flutter synchronizer `enqueue`: `flushImmediately || interval==0`
+     * → `scheduleFlush`, otherwise `_scheduleDeferredFlush`).
+     */
+    private fun scheduleFlushOrDefer(flushImmediately: Boolean) {
+        if (flushImmediately) scheduleFlush() else scheduleDeferredFlush()
+    }
+
+    /**
+     * Arm a single coalesced flush after `config.eventFlushIntervalMs` (PARITY §7 —
+     * Flutter `_scheduleDeferredFlush`). Coalescing: a pending handle short-circuits
+     * re-arming so timers never stack; the interval-zero case degrades to an
+     * immediate flush (mirrors Flutter's `interval == Duration.zero`). Respects the
+     * same [isEnabled] gate as [scheduleFlush] so nothing is scheduled while tracking
+     * is disabled / the project token is empty.
+     */
+    private fun scheduleDeferredFlush() {
+        if (config.eventFlushIntervalMs <= 0L) {
+            scheduleFlush()
+            return
+        }
+        if (!isEnabled()) return
+        synchronized(deferredFlushLock) {
+            if (deferredFlushHandle != null) return
+            deferredFlushHandle = scheduler.scheduleOnce(config.eventFlushIntervalMs) {
+                synchronized(deferredFlushLock) { deferredFlushHandle = null }
+                scheduleFlush()
+            }
+        }
+    }
+
+    private fun cancelDeferredFlush() {
+        synchronized(deferredFlushLock) {
+            deferredFlushHandle?.cancel()
+            deferredFlushHandle = null
+        }
+    }
+
     private fun scheduleFlush() {
+        // An immediate flush supersedes any pending coalesced flush (PARITY §7 —
+        // Flutter `scheduleFlush` cancels `_deferredFlushTimer`).
+        cancelDeferredFlush()
         if (!isEnabled()) return
         if (flushExecutor.isShutdown) return
         flushExecutor.execute {
@@ -928,6 +1000,12 @@ class Attriax internal constructor(
         private val NOOP_SCHEDULER = object : com.attriax.sdk.internal.AttriaxScheduler {
             override fun schedulePeriodic(
                 intervalMs: Long,
+                action: () -> Unit,
+            ): com.attriax.sdk.internal.AttriaxScheduler.ScheduledHandle =
+                com.attriax.sdk.internal.AttriaxScheduler.ScheduledHandle { }
+
+            override fun scheduleOnce(
+                delayMs: Long,
                 action: () -> Unit,
             ): com.attriax.sdk.internal.AttriaxScheduler.ScheduledHandle =
                 com.attriax.sdk.internal.AttriaxScheduler.ScheduledHandle { }

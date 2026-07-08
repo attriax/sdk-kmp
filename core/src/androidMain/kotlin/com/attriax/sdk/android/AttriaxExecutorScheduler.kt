@@ -39,6 +39,24 @@ class AttriaxExecutorScheduler : AttriaxScheduler {
         return AttriaxScheduler.ScheduledHandle { future.cancel(false) }
     }
 
+    override fun scheduleOnce(
+        delayMs: Long,
+        action: () -> Unit,
+    ): AttriaxScheduler.ScheduledHandle {
+        val future = executor.schedule(
+            {
+                try {
+                    action()
+                } catch (e: Exception) {
+                    // A deferred-flush failure must never crash the host or the pool.
+                }
+            },
+            delayMs,
+            TimeUnit.MILLISECONDS,
+        )
+        return AttriaxScheduler.ScheduledHandle { future.cancel(false) }
+    }
+
     fun shutdown() {
         executor.shutdownNow()
     }

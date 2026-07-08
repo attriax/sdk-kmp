@@ -315,7 +315,9 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
             occurredAtIso = engine.nowIsoNow(),
             metadata = mergedMetadata,
         )
-        engine.enqueueRequest(request, flushImmediately = flushImmediately)
+        // Notifications are event-family signals: first-launch eager flush applies
+        // (PARITY — Flutter recordNotification `_shouldFlushEventImmediately`).
+        engine.enqueueRequest(request, flushImmediately = engine.shouldFlushEventImmediately(flushImmediately))
     }
 
     fun recordNotificationReceived(

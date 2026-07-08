@@ -87,5 +87,32 @@ class AttriaxRequestBuildersTest {
         assertEquals("14", device["osVersion"])
         assertEquals("UTC", device["timezone"])
         assertEquals("en-US", device["language"])
+
+        // sdkMetadata defaults to null → the `sdk.metadata` block is OMITTED.
+        assertFalse(sdk.containsKey("metadata"))
+    }
+
+    @Test
+    fun openAttachesSdkMetadataUnderSdkBlockWhenProvided() {
+        val ctx = AttriaxContextSnapshot(
+            packageName = "com.x", appVersion = "1.2.3", appBuildNumber = "45",
+            deviceModel = "Pixel", deviceManufacturer = "Google", osVersion = "14",
+            deviceTimezone = "UTC", deviceLocale = "en-US",
+        )
+        val open = AttriaxRequestBuilders.buildOpen(
+            projectToken = "t", context = ctx, deviceId = "d", deviceIdSource = "android_ssaid",
+            isFirstLaunch = true, sessionId = null, sessionStartedAtIso = null,
+            sdkMetadata = mapOf("integration" to "unity", "wrapperVersion" to "2.1.0"),
+        )
+
+        @Suppress("UNCHECKED_CAST")
+        val sdk = open.body["sdk"] as Map<String, Any?>
+        // Wire path: sdk.metadata (mirrors Flutter AttriaxSdkSnapshot.metadata).
+        assertEquals("v1", sdk["apiVersion"])
+        assertEquals("0.5.0", sdk["packageVersion"])
+        @Suppress("UNCHECKED_CAST")
+        val metadata = sdk["metadata"] as Map<String, Any?>
+        assertEquals("unity", metadata["integration"])
+        assertEquals("2.1.0", metadata["wrapperVersion"])
     }
 }

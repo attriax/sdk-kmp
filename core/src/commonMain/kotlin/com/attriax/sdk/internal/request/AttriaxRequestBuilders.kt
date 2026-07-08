@@ -26,6 +26,7 @@ object AttriaxRequestBuilders {
         referrerClickTimestampSeconds: Long? = null,
         googlePlayInstantParam: Boolean? = null,
         attestation: Map<String, Any?>? = null,
+        sdkMetadata: Map<String, Any?>? = null,
     ): AttriaxApiRequest {
         // The open DTO (api SdkV1OpenDto) NESTS context under `sdk`/`app`/`device`
         // sub-objects — the backend rejects unknown top-level properties
@@ -37,10 +38,14 @@ object AttriaxRequestBuilders {
         body["deviceIdSource"] = deviceIdSource
         body["isFirstLaunch"] = isFirstLaunch
 
-        body["sdk"] = linkedMapOf<String, Any?>(
-            "apiVersion" to context.sdkApiVersion,
-            "packageVersion" to context.sdkPackageVersion,
-        )
+        // The `sdk` block carries apiVersion/packageVersion and the optional
+        // host-supplied metadata (Flutter's AttriaxSdkSnapshot.metadata — sourced
+        // from AttriaxConfig.sdkMetadata). Absent metadata is OMITTED, not sent null.
+        val sdk = LinkedHashMap<String, Any?>()
+        sdk["apiVersion"] = context.sdkApiVersion
+        sdk["packageVersion"] = context.sdkPackageVersion
+        sdkMetadata?.let { sdk["metadata"] = it }
+        body["sdk"] = sdk
 
         val app = LinkedHashMap<String, Any?>()
         context.appVersion?.let { app["version"] = it }

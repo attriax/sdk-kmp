@@ -18,6 +18,16 @@ data class AttriaxConfig(
     val appVersion: String? = null,
     val appBuildNumber: String? = null,
     val appPackageName: String? = null,
+    /**
+     * Extra SDK metadata attached to the runtime context payload (PARITY — Flutter
+     * `AttriaxConfig.sdkMetadata`, types_session_config.dart:108/150). Merged into
+     * the app-open `sdk.metadata` block (see [AttriaxRequestBuilders.buildOpen]).
+     * `null` omits the block entirely. Flutter defaults this to an empty map and
+     * always emits `{clientRuntime:'flutter'}`; the KMP core defaults to `null` and
+     * emits nothing extra unless the host supplies metadata (no synthetic
+     * clientRuntime key — that stays a per-wrapper concern).
+     */
+    val sdkMetadata: Map<String, Any?>? = null,
     val requestTimeoutMs: Long = 12_000L,
     val maxQueueSize: Int = 500,
     val eventFlushIntervalMs: Long = 60_000L,

@@ -48,6 +48,12 @@ class AttriaxSessionLifecycleManagerTest {
             }
         }
 
+        override fun scheduleOnce(delayMs: Long, action: () -> Unit): AttriaxScheduler.ScheduledHandle {
+            // The session-lifecycle manager only uses schedulePeriodic; the one-shot
+            // deferred-flush seam is exercised by the engine tests, not here.
+            return AttriaxScheduler.ScheduledHandle { }
+        }
+
         val hasActiveTimer: Boolean get() = activeSchedules > 0
         fun tick() = action!!.invoke()
     }
