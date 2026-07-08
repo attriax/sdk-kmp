@@ -36,3 +36,29 @@ internal actual fun attriaxLogError(message: String) {
 internal actual fun attriaxLogInfo(message: String) {
     println(message)
 }
+
+internal actual fun attriaxInstallUncaughtExceptionHandler(
+    onFatalCrash: (Throwable) -> Unit,
+): AttriaxUncaughtHandlerRegistration {
+    val previous = Thread.getDefaultUncaughtExceptionHandler()
+    val installed = Thread.UncaughtExceptionHandler { thread, throwable ->
+        try {
+            // SYNCHRONOUS persist — the process is dying, so nothing async can run.
+            onFatalCrash(throwable)
+        } catch (_: Throwable) {
+            // Never mask the original crash with a reporting failure.
+        }
+        // DELEGATE so the app's normal crash flow (default handler / OS dialog) runs.
+        previous?.uncaughtException(thread, throwable)
+    }
+    Thread.setDefaultUncaughtExceptionHandler(installed)
+    return object : AttriaxUncaughtHandlerRegistration {
+        override fun uninstall() {
+            // Only restore when our handler is still the active one (do not clobber a
+            // handler someone else installed after us).
+            if (Thread.getDefaultUncaughtExceptionHandler() === installed) {
+                Thread.setDefaultUncaughtExceptionHandler(previous)
+            }
+        }
+    }
+}

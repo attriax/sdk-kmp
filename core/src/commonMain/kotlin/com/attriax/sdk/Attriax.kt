@@ -2,6 +2,10 @@ package com.attriax.sdk
 
 import com.attriax.sdk.internal.AttriaxBackgroundExecutor
 import com.attriax.sdk.internal.AttriaxClock
+import com.attriax.sdk.internal.AttriaxCrashReportingManager
+import com.attriax.sdk.internal.AttriaxUncaughtHandlerRegistration
+import com.attriax.sdk.internal.attriaxExceptionName
+import com.attriax.sdk.internal.attriaxInstallUncaughtExceptionHandler
 import com.attriax.sdk.internal.AttriaxContextSnapshot
 import com.attriax.sdk.internal.AttriaxDeviceIdentityStore
 import com.attriax.sdk.internal.AttriaxIso8601
@@ -94,6 +98,15 @@ class Attriax internal constructor(
      * passed as the consent manager's `syncExecutor`. Injected for deterministic tests.
      */
     private val consentExecutor: AttriaxBackgroundExecutor = attriaxBackgroundExecutor("attriax-consent"),
+    /**
+     * OS uncaught-exception handler seam (PARITY §4). Injected with the platform
+     * default so the pure engine + tests can substitute a fake that captures the
+     * `onFatalCrash` callback and drives it directly (never crashing the test VM).
+     * On native this default is a compile-only placeholder that installs nothing.
+     */
+    private val installUncaughtExceptionHandler:
+        (onFatalCrash: (Throwable) -> Unit) -> AttriaxUncaughtHandlerRegistration =
+        ::attriaxInstallUncaughtExceptionHandler,
 ) {
     /**
      * Leveled logger (PARITY — Flutter reference `AttriaxLogger`). Constructed once
@@ -191,6 +204,30 @@ class Attriax internal constructor(
         anonymousTrackingEnabled = { anonymousTrackingFlag.value },
         allowsAttributionTracking = { consentManager.allowsAttributionTracking() },
         trackingDecisionFor = { consentManager.trackingDecisionFor(it) },
+    )
+
+    /**
+     * Automatic crash reporting (PARITY §4). Reuses the engine's crash builder so the
+     * replayed/reported crash is the SAME wire shape as the manual [recordError]. The
+     * DEAD [AttriaxConfig.automaticCrashReportingEnabled] flag (default `true`, matching
+     * Flutter) is wired here: when off, no handler installs and no replay runs.
+     */
+    private val crashReporting = AttriaxCrashReportingManager(
+        enabled = config.automaticCrashReportingEnabled,
+        store = store,
+        enqueueCrash = { request -> enqueueRequest(request, flushImmediately = false) },
+        buildFatalCrash = { throwable ->
+            buildCrashRequest(
+                error = throwable,
+                stackTrace = null,
+                fatal = true,
+                source = AttriaxCrashReportingManager.SOURCE_UNCAUGHT_EXCEPTION,
+                reason = null,
+                metadata = null,
+            )
+        },
+        installUncaughtHandler = installUncaughtExceptionHandler,
+        logError = { logger.warn(it) },
     )
 
     private val initialized = atomic(false)
@@ -321,6 +358,13 @@ class Attriax internal constructor(
 
         // Flush any consent decision persisted with pendingSync across a restart.
         consentManager.flushPendingSync()
+
+        // Automatic crash reporting (PARITY §4): replay a crash a prior fatal handler
+        // persisted (enqueue + one-shot clear), then install the OS uncaught-exception
+        // handler. Both are gated by automaticCrashReportingEnabled; the native handler
+        // is a compile-only placeholder until the platform chunk.
+        crashReporting.replayPendingCrashReport()
+        crashReporting.install()
 
         if (firstLaunch) {
             store.putString(KEY_FIRST_LAUNCH, "false")
@@ -532,6 +576,66 @@ class Attriax internal constructor(
     ) {
         requireInitialized()
         enqueueTracked(request, flushImmediately)
+    }
+
+    // -------- crash / error reporting (PARITY §4) — behind `tracking.recordError` + auto handler --------
+
+    /**
+     * Build the crash/error request (POST `/api/sdk/v1/crashes`) shared by the manual
+     * [tracking] `recordError`, the public fatal-report path, and the automatic OS
+     * uncaught-exception handler — so every crash uses the SAME frozen-identity wire
+     * shape ([AttriaxRequestBuilders.buildCrash]). Identity is stamped in full here;
+     * the consent gate at enqueue strips it when anonymous capture applies.
+     */
+    internal fun buildCrashRequest(
+        error: Throwable,
+        stackTrace: String?,
+        fatal: Boolean,
+        source: String,
+        reason: String?,
+        metadata: Map<String, Any?>?,
+    ): AttriaxApiRequest = AttriaxRequestBuilders.buildCrash(
+        projectToken = config.normalizedProjectToken,
+        context = context,
+        deviceId = deviceIdentity?.value,
+        deviceIdSource = deviceIdentity?.source,
+        source = com.attriax.sdk.internal.AttriaxRevenue.trimOrNull(source) ?: "manual",
+        isFatal = fatal,
+        exceptionType = attriaxExceptionName(error),
+        message = error.message ?: error.toString(),
+        stackTrace = stackTrace ?: error.stackTraceToString(),
+        isFirstLaunch = firstLaunch,
+        clientOccurredAtIso = nowIso(),
+        reason = com.attriax.sdk.internal.AttriaxRevenue.trimOrNull(reason),
+        sessionId = null,
+        sessionRelativeTimeMs = null,
+        metadata = metadata,
+    )
+
+    /**
+     * Record an error/crash (PARITY §4 — Flutter `AttriaxTracking.recordError`).
+     * `fatal = false` is a normal non-fatal enqueue (the existing behavior);
+     * `fatal = true` PERSISTS the crash to durable storage ONLY (no immediate enqueue) —
+     * it is delivered exclusively via replay on the next init, giving exactly-once
+     * delivery through the durable queue. This is the path wrappers use to forward
+     * framework-level fatal crashes.
+     * Honors the engine `enabled` gate exactly like the previous surface method did.
+     */
+    internal fun recordError(
+        error: Throwable,
+        stackTrace: String?,
+        fatal: Boolean,
+        source: String,
+        reason: String?,
+        metadata: Map<String, Any?>?,
+    ) {
+        if (!isTrackingEnabled) return
+        val request = buildCrashRequest(error, stackTrace, fatal, source, reason, metadata)
+        if (fatal) {
+            crashReporting.reportFatal(request)
+        } else {
+            enqueueRequest(request, flushImmediately = false)
+        }
     }
 
     /**
@@ -868,6 +972,8 @@ class Attriax internal constructor(
 
     /** Clear SDK state to pre-init (PARITY §1 reset; rows D2). */
     fun reset() {
+        // Restore the previous OS uncaught-exception handler before wiping state.
+        crashReporting.uninstall()
         // Tear down session telemetry BEFORE clearing identity so no in-flight
         // heartbeat/transition re-persists a snapshot after the wipe (PARITY §3).
         lifecycleBinder.unbind()
@@ -890,6 +996,7 @@ class Attriax internal constructor(
     }
 
     fun dispose() {
+        crashReporting.uninstall()
         lifecycleBinder.unbind()
         sessionLifecycleManager.deactivate()
         cancelDeferredFlush()

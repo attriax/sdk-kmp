@@ -40,6 +40,39 @@ internal expect fun attriaxExceptionName(e: Throwable): String
 internal expect fun attriaxLogError(message: String)
 
 /**
+ * A handle to an installed process-wide uncaught-exception handler (PARITY §4 —
+ * Flutter `AttriaxCrashReportingManager` handler install/restore). [uninstall]
+ * restores the previously-installed handler; it is idempotent and only restores
+ * when our handler is still the active one.
+ */
+internal interface AttriaxUncaughtHandlerRegistration {
+    fun uninstall()
+
+    /** A registration that installed nothing (native placeholder / disabled path). */
+    object Noop : AttriaxUncaughtHandlerRegistration {
+        override fun uninstall() = Unit
+    }
+}
+
+/**
+ * Install a process-wide uncaught-exception handler that invokes [onFatalCrash]
+ * SYNCHRONOUSLY (the process is dying — no background executor) before DELEGATING
+ * to the previously-installed handler so the app's normal crash flow still runs.
+ * Returns a registration whose [uninstall] restores the previous handler.
+ *
+ *  - androidMain / jvmMain: `Thread.setDefaultUncaughtExceptionHandler` — captures
+ *    the previous handler, calls `onFatalCrash(throwable)`, then delegates.
+ *  - nativeMain: a COMPILE-ONLY documented placeholder that does NOT install and
+ *    returns [AttriaxUncaughtHandlerRegistration.Noop]. Real native capture (iOS
+ *    `NSSetUncaughtExceptionHandler` at the Mac; POSIX signal handlers later) lands
+ *    with the platform chunk. The common persist/replay + public `recordError`
+ *    fatal API still work on native — only the OS-level auto-capture is deferred.
+ */
+internal expect fun attriaxInstallUncaughtExceptionHandler(
+    onFatalCrash: (Throwable) -> Unit,
+): AttriaxUncaughtHandlerRegistration
+
+/**
  * Emit a non-error diagnostic line (debug/info levels). Routed to stdout so it is
  * distinct from the [attriaxLogError] stderr channel and stays dependency-free.
  */

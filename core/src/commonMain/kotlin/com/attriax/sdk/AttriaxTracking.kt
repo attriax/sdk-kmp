@@ -1,7 +1,6 @@
 package com.attriax.sdk
 
 import com.attriax.sdk.internal.AttriaxRevenue
-import com.attriax.sdk.internal.attriaxExceptionName
 import com.attriax.sdk.internal.request.AttriaxRequestBuilders
 
 /**
@@ -250,6 +249,15 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
 
     // -------- errors / crashes (POST /api/sdk/v1/crashes) --------
 
+    /**
+     * Record an error/crash (POST `/api/sdk/v1/crashes`). `fatal = false` is a normal
+     * non-fatal enqueue; `fatal = true` PERSISTS ONLY (no immediate enqueue) and is
+     * delivered exclusively via replay on the next init — exactly-once through the
+     * durable queue — the path Flutter/Unity/RN wrappers call to forward their own
+     * framework-level fatal crashes.
+     * Delegates to the engine so the manual, auto-handler, and replay paths share one
+     * crash wire shape.
+     */
     fun recordError(
         error: Throwable,
         stackTrace: String? = null,
@@ -258,25 +266,14 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
         reason: String? = null,
         metadata: Map<String, Any?>? = null,
     ) {
-        if (!engine.isTrackingEnabled) return
-        val request = AttriaxRequestBuilders.buildCrash(
-            projectToken = projectToken(),
-            context = engine.contextSnapshot,
-            deviceId = engine.resolvedDeviceId,
-            deviceIdSource = engine.resolvedDeviceIdSource,
-            source = AttriaxRevenue.trimOrNull(source) ?: "manual",
-            isFatal = fatal,
-            exceptionType = attriaxExceptionName(error),
-            message = error.message ?: error.toString(),
-            stackTrace = stackTrace ?: error.stackTraceToString(),
-            isFirstLaunch = engine.isFirstLaunch,
-            clientOccurredAtIso = engine.nowIsoNow(),
-            reason = AttriaxRevenue.trimOrNull(reason),
-            sessionId = null,
-            sessionRelativeTimeMs = null,
+        engine.recordError(
+            error = error,
+            stackTrace = stackTrace,
+            fatal = fatal,
+            source = source,
+            reason = reason,
             metadata = metadata,
         )
-        engine.enqueueRequest(request, flushImmediately = false)
     }
 
     // -------- notifications (POST /api/sdk/v1/notifications; rows E6) --------
