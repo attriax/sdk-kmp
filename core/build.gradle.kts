@@ -35,6 +35,32 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
+        // Kotlin/Native desktop targets (mingwX64 = Windows-native, linuxX64). The
+        // shared native source set gets coroutines (real off-thread background
+        // execution + delay-based scheduling) and the Ktor client core (suspend HTTP
+        // transport, bridged to the synchronous port via runBlocking). Each target's
+        // Ktor ENGINE lives in its OWN source set so a Linux-only dependency problem
+        // (Curl needs libcurl) can never break the Windows-native build.
+        nativeMain.dependencies {
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+            implementation("io.ktor:ktor-client-core:3.0.3")
+        }
+        // WinHttp is self-contained on Windows (ships with the OS) — no external
+        // native library, links cleanly on this host.
+        val mingwX64Main by getting {
+            dependencies {
+                implementation("io.ktor:ktor-client-winhttp:3.0.3")
+            }
+        }
+        // Curl needs libcurl at LINK time. Compiling Kotlin against the engine klib
+        // does not require libcurl (the cinterop bindings ship in the artifact), so
+        // compileKotlinLinuxX64 stays green on this Windows host; only linking a
+        // linuxX64 executable (done at a Linux build) needs libcurl present.
+        val linuxX64Main by getting {
+            dependencies {
+                implementation("io.ktor:ktor-client-curl:3.0.3")
+            }
+        }
         androidMain.dependencies {
             // Back the androidMain adapters (chunk 3): OkHttp transport,
             // ProcessLifecycleOwner binder, Play install-referrer client, and the
