@@ -28,6 +28,9 @@ kotlin {
             // Multiplatform clock + ISO-8601 formatting — replaces JVM
             // System.currentTimeMillis / SimpleDateFormat in the shared core.
             implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
+            // Multiplatform locks + atomics (used as a plain library, no compiler
+            // plugin) — replaces java.util.concurrent synchronized/AtomicBoolean.
+            implementation("org.jetbrains.kotlinx:atomicfu:0.25.0")
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
