@@ -12,7 +12,14 @@ import com.attriax.sdk.AttriaxVersion
  * (`sha256(appId, ip, userAgent, dailySalt)`), so it must be stable per install
  * or a drifting UA mints multiple anonymous users per device.
  *
- * Shape:  `attriax-android-sdk/<ver> (Android <osVersion>; <descriptor>)`
+ * Shape:  `<client>/<ver> (<osName> <osVersion>; <descriptor>)`
+ *   Android: `attriax-android-sdk/<ver> (Android <osVersion>; <descriptor>)`
+ *   JVM desktop: `attriax-jvm-sdk/<ver> (Windows <osVersion>; <descriptor>)`
+ *
+ * [client] and [osName] default to the Android values so existing callers are
+ * unchanged; the JVM desktop factory overrides them (`attriax-jvm-sdk` / the real
+ * `os.name`) so the UA is honest per platform while still carrying the mandatory,
+ * isbot-passing parenthetical suffix.
  *
  * Pure — the caller supplies [osVersion] and [descriptor] (package name preferred,
  * else device model) so this is unit-testable off-device.
@@ -22,9 +29,13 @@ object AttriaxUserAgent {
         osVersion: String,
         descriptor: String,
         packageVersion: String = AttriaxVersion.PACKAGE_VERSION,
+        client: String = "attriax-android-sdk",
+        osName: String = "Android",
     ): String {
         val os = osVersion.ifBlank { "unknown" }
         val desc = descriptor.ifBlank { "unknown" }
-        return "attriax-android-sdk/$packageVersion (Android $os; $desc)"
+        val name = osName.ifBlank { "unknown" }
+        val slug = client.ifBlank { "attriax-sdk" }
+        return "$slug/$packageVersion ($name $os; $desc)"
     }
 }
