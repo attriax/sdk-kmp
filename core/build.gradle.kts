@@ -35,6 +35,17 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
+        androidMain.dependencies {
+            // Back the androidMain adapters (chunk 3): OkHttp transport,
+            // ProcessLifecycleOwner binder, Play install-referrer client, and the
+            // opt-in Play Integrity attestation provider (compileOnly — only loaded
+            // when an integration explicitly enables attestation).
+            implementation("com.squareup.okhttp3:okhttp:4.12.0")
+            implementation("androidx.lifecycle:lifecycle-process:2.7.0")
+            implementation("com.android.installreferrer:installreferrer:2.2")
+            compileOnly("com.google.android.play:integrity:1.4.0")
+            compileOnly("com.google.android.gms:play-services-tasks:18.2.0")
+        }
     }
 }
 
