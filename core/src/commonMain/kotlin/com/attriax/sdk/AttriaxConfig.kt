@@ -136,6 +136,28 @@ data class AttriaxConfig(
      * [com.attriax.sdk.Attriax.submitAsaToken] irrespective of this flag.
      */
     val asaTokenCaptureEnabled: Boolean = true,
+    /**
+     * Wrapper-supplied CCPA "do not sell / share" election (Epic 10.1, PARITY §5 —
+     * the `consent.ccpa` sub-surface). Sent TOP-LEVEL as `doNotSell` on the app-open
+     * and identify requests (mirrors `attStatus`), NOT nested under `device`. The
+     * election is LATCHING server-side; the SDK only sends the current value. `null`
+     * (the default, and the default SDK state) → the field is OMITTED entirely (a
+     * no-CCPA app is byte-identical to today). An explicit `true` or `false` is
+     * EMITTED — a deliberately-set `false` must be sent because it may clear a prior
+     * server-side latch. Seeds the runtime holder at init; overridable at runtime via
+     * [AttriaxCcpaConsent.setDoNotSell] / [com.attriax.sdk.Attriax].
+     */
+    val doNotSell: Boolean? = null,
+    /**
+     * Wrapper-supplied raw IAB US-Privacy (USP) string (Epic 10.1, PARITY §5 — the
+     * `consent.ccpa` sub-surface), e.g. `1YYN`. Sent TOP-LEVEL as `usPrivacy` on the
+     * app-open and identify requests (mirrors `attStatus`), NOT nested under `device`.
+     * `null`/blank (the default) → the field is OMITTED. A non-blank value is EMITTED,
+     * defensively capped at 16 chars to match the api DTO's `@MaxLength(16)`. Seeds the
+     * runtime holder at init; overridable at runtime via [AttriaxCcpaConsent.setUsPrivacy]
+     * / [com.attriax.sdk.Attriax].
+     */
+    val usPrivacy: String? = null,
 ) {
     init {
         require(maxQueueSize > 0) { "maxQueueSize must be positive" }

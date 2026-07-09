@@ -327,6 +327,22 @@ class Attriax internal constructor(
      */
     @Volatile private var wrapperAttStatus: AttriaxAttStatus? = config.attStatus
 
+    /**
+     * Wrapper-supplied CCPA do-not-sell election (Epic 10.1, PARITY §5). Seeded from
+     * [AttriaxConfig.doNotSell]; updated by [setCcpaDoNotSell]. `null` → OMITTED; an
+     * explicit `true`/`false` is EMITTED TOP-LEVEL as `doNotSell`. In-memory only,
+     * matching [wrapperAttStatus]. See [ccpaDoNotSell] / [resolveDoNotSellWire].
+     */
+    @Volatile private var wrapperDoNotSell: Boolean? = config.doNotSell
+
+    /**
+     * Wrapper-supplied raw IAB US-Privacy string (Epic 10.1, PARITY §5). Seeded from
+     * [AttriaxConfig.usPrivacy]; updated by [setCcpaUsPrivacy]. `null`/blank → OMITTED;
+     * a non-blank value is EMITTED TOP-LEVEL as `usPrivacy` (capped at 16 chars). See
+     * [ccpaUsPrivacy] / [resolveUsPrivacyWire].
+     */
+    @Volatile private var wrapperUsPrivacy: String? = config.usPrivacy
+
     private val connectivityListener = ConnectivityMonitor.Listener { scheduleFlush() }
 
     /** Public tracking / revenue / identify surface (PARITY §4). */
@@ -1093,6 +1109,39 @@ class Attriax internal constructor(
     internal fun resolveAttStatusWire(): String? =
         attStatus.takeIf { it != AttriaxAttStatus.UNKNOWN }?.wireValue
 
+    // -------- CCPA (Epic 10.1) — engine methods behind the `consent.ccpa` surface --------
+
+    /** Current CCPA do-not-sell election (wrapper-supplied or config seed). Backs `consent.ccpa.doNotSell`. */
+    internal val ccpaDoNotSell: Boolean? get() = wrapperDoNotSell
+
+    /** Current raw IAB US-Privacy string (wrapper-supplied or config seed). Backs `consent.ccpa.usPrivacy`. */
+    internal val ccpaUsPrivacy: String? get() = wrapperUsPrivacy
+
+    /** Wrapper-supply setter for the CCPA do-not-sell election. */
+    internal fun setCcpaDoNotSell(doNotSell: Boolean?) {
+        wrapperDoNotSell = doNotSell
+    }
+
+    /** Wrapper-supply setter for the raw IAB US-Privacy string. */
+    internal fun setCcpaUsPrivacy(usPrivacy: String?) {
+        wrapperUsPrivacy = usPrivacy
+    }
+
+    /**
+     * The resolved CCPA do-not-sell election for the app-open / identify (config seed
+     * overridden by any runtime setter, mirroring [resolveAttStatusWire]). The builder
+     * applies the omit-when-null rule; an explicit `true`/`false` is passed through (a
+     * deliberate `false` may clear a prior server latch).
+     */
+    internal fun resolveDoNotSellWire(): Boolean? = wrapperDoNotSell
+
+    /**
+     * The resolved raw IAB US-Privacy string for the app-open / identify (config seed
+     * overridden by any runtime setter). The builder applies the omit-when-null/blank
+     * rule and the defensive 16-char cap (the api DTO's `@MaxLength(16)`).
+     */
+    internal fun resolveUsPrivacyWire(): String? = wrapperUsPrivacy
+
     // -------- SKAdNetwork (Epic 8.5) — engine methods behind the `skan` surface --------
 
     /** Locally tracked SKAN state (passthrough subset), or null off-iOS. Backs `skan.state`. */
@@ -1361,6 +1410,8 @@ class Attriax internal constructor(
             googlePlayInstantParam = referrer?.googlePlayInstantParam,
             attestation = attestation,
             attStatus = resolveAttStatusWire(),
+            doNotSell = resolveDoNotSellWire(),
+            usPrivacy = resolveUsPrivacyWire(),
             sdkMetadata = config.sdkMetadata,
         )
         enqueue(open)

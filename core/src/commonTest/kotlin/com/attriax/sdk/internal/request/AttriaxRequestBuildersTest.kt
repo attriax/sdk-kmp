@@ -92,6 +92,88 @@ class AttriaxRequestBuildersTest {
         assertFalse(sdk.containsKey("metadata"))
     }
 
+    // -------- CCPA (Epic 10.1) — TOP-LEVEL doNotSell / usPrivacy, omit-when-unset --------
+
+    private val ccpaCtx = AttriaxContextSnapshot(
+        packageName = "com.x", appVersion = "1.2.3", appBuildNumber = "45",
+        deviceModel = "Pixel", deviceManufacturer = "Google", osVersion = "14",
+        deviceTimezone = "UTC", deviceLocale = "en-US",
+    )
+
+    @Test
+    fun openEmitsCcpaFieldsTopLevelWhenSet() {
+        val open = AttriaxRequestBuilders.buildOpen(
+            projectToken = "t", context = ccpaCtx, deviceId = "d", deviceIdSource = "android_ssaid",
+            isFirstLaunch = true, sessionId = null, sessionStartedAtIso = null,
+            doNotSell = true, usPrivacy = "1YYN",
+        )
+        val body = open.body
+        // TOP-LEVEL, mirroring attStatus — NOT nested under device.
+        assertEquals(true, body["doNotSell"])
+        assertEquals("1YYN", body["usPrivacy"])
+        @Suppress("UNCHECKED_CAST")
+        val device = body["device"] as Map<String, Any?>
+        assertFalse(device.containsKey("doNotSell"))
+        assertFalse(device.containsKey("usPrivacy"))
+    }
+
+    @Test
+    fun openEmitsExplicitFalseDoNotSell() {
+        val open = AttriaxRequestBuilders.buildOpen(
+            projectToken = "t", context = ccpaCtx, deviceId = "d", deviceIdSource = "android_ssaid",
+            isFirstLaunch = true, sessionId = null, sessionStartedAtIso = null,
+            doNotSell = false,
+        )
+        // A deliberate false must be sent (it may clear a prior server latch) — NOT omitted.
+        assertTrue(open.body.containsKey("doNotSell"))
+        assertEquals(false, open.body["doNotSell"])
+    }
+
+    @Test
+    fun openOmitsCcpaFieldsWhenNullOrBlank() {
+        val open = AttriaxRequestBuilders.buildOpen(
+            projectToken = "t", context = ccpaCtx, deviceId = "d", deviceIdSource = "android_ssaid",
+            isFirstLaunch = true, sessionId = null, sessionStartedAtIso = null,
+            doNotSell = null, usPrivacy = "   ",
+        )
+        // Default/unset doNotSell and blank usPrivacy → both OMITTED (byte-identical open).
+        assertFalse(open.body.containsKey("doNotSell"))
+        assertFalse(open.body.containsKey("usPrivacy"))
+    }
+
+    @Test
+    fun openCapsUsPrivacyAt16Chars() {
+        val open = AttriaxRequestBuilders.buildOpen(
+            projectToken = "t", context = ccpaCtx, deviceId = "d", deviceIdSource = "android_ssaid",
+            isFirstLaunch = true, sessionId = null, sessionStartedAtIso = null,
+            usPrivacy = "1YYN012345678901234567",
+        )
+        assertEquals("1YYN012345678901", open.body["usPrivacy"])
+        assertEquals(16, (open.body["usPrivacy"] as String).length)
+    }
+
+    @Test
+    fun userEmitsCcpaFieldsTopLevelWhenSet() {
+        val user = AttriaxRequestBuilders.buildUser(
+            projectToken = "t", externalUserId = "u", externalUserName = "Ada",
+            properties = null, deviceId = "d", deviceIdSource = "android_ssaid",
+            doNotSell = true, usPrivacy = "1YNN",
+        )
+        assertEquals(true, user.body["doNotSell"])
+        assertEquals("1YNN", user.body["usPrivacy"])
+    }
+
+    @Test
+    fun userOmitsCcpaFieldsWhenNullOrBlank() {
+        val user = AttriaxRequestBuilders.buildUser(
+            projectToken = "t", externalUserId = "u", externalUserName = null,
+            properties = null, deviceId = "d", deviceIdSource = "android_ssaid",
+            doNotSell = null, usPrivacy = null,
+        )
+        assertFalse(user.body.containsKey("doNotSell"))
+        assertFalse(user.body.containsKey("usPrivacy"))
+    }
+
     @Test
     fun openAttachesSdkMetadataUnderSdkBlockWhenProvided() {
         val ctx = AttriaxContextSnapshot(

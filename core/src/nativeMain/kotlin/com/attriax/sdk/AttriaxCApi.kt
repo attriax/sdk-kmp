@@ -442,6 +442,18 @@ private fun route(handle: AttriaxNativeHandle, method: String, args: Map<String,
             okEnvelope(result.wireValue)
         }
 
+        // -------- CCPA (Epic 10.1) --------
+        "getDoNotSell" -> okEnvelope(engine.consent.ccpa.doNotSell)
+        "setDoNotSell" -> {
+            engine.consent.ccpa.setDoNotSell(args.boolOrNull("doNotSell"))
+            okEnvelope(null)
+        }
+        "getUsPrivacy" -> okEnvelope(engine.consent.ccpa.usPrivacy)
+        "setUsPrivacy" -> {
+            engine.consent.ccpa.setUsPrivacy(args.string("usPrivacy"))
+            okEnvelope(null)
+        }
+
         // -------- deep links --------
         "handleIncomingLink" -> {
             val uri = args.string("uri") ?: return errEnvelope("missing:uri")
@@ -553,6 +565,8 @@ private fun buildConfig(j: Map<String, Any?>): AttriaxConfig = AttriaxConfig(
         )
     },
     asaTokenCaptureEnabled = j.boolOr("asaTokenCaptureEnabled", true),
+    doNotSell = j.boolOrNull("doNotSell"),
+    usPrivacy = j.string("usPrivacy"),
 )
 
 /**

@@ -14,6 +14,59 @@ class AttriaxConsent internal constructor(engine: Attriax) {
 
     /** Apple App Tracking Transparency (ATT) status + request helpers. */
     val att: AttriaxAttConsent = AttriaxAttConsent(engine)
+
+    /** CCPA "do not sell / share" election + US-Privacy string helpers. */
+    val ccpa: AttriaxCcpaConsent = AttriaxCcpaConsent(engine)
+}
+
+/**
+ * CCPA "do not sell / share" actions (Epic 10.1, PARITY §5 — the `consent.ccpa`
+ * sub-surface, mirroring [AttriaxAttConsent]).
+ *
+ * The election is LATCHING server-side; the SDK only reports the current value.
+ * [doNotSell]/[usPrivacy] are seeded from [AttriaxConfig.doNotSell] /
+ * [AttriaxConfig.usPrivacy] and overridable at runtime via [setDoNotSell] /
+ * [setUsPrivacy] / [set]; a runtime change is reflected on the NEXT app-open /
+ * identify. `null` doNotSell and `null`/blank usPrivacy are OMITTED from the wire
+ * entirely (a no-CCPA app is byte-identical to today); an explicit `false`
+ * doNotSell IS emitted (it may clear a prior server-side latch).
+ */
+class AttriaxCcpaConsent internal constructor(private val engine: Attriax) {
+
+    /**
+     * Current CCPA do-not-sell election: the wrapper-supplied value if one was set
+     * (via [AttriaxConfig.doNotSell] or [setDoNotSell]/[set]), else `null` (unset →
+     * omitted from the wire).
+     */
+    val doNotSell: Boolean? get() = engine.ccpaDoNotSell
+
+    /**
+     * Current raw IAB US-Privacy string: the wrapper-supplied value if one was set
+     * (via [AttriaxConfig.usPrivacy] or [setUsPrivacy]/[set]), else `null`
+     * (unset/blank → omitted from the wire).
+     */
+    val usPrivacy: String? get() = engine.ccpaUsPrivacy
+
+    /**
+     * SET the CCPA do-not-sell election. The engine reports it via [doNotSell] and
+     * emits it (unless `null`) TOP-LEVEL on the next app-open / identify. An explicit
+     * `false` is sent (it may clear a prior server-side latch); `null` returns to the
+     * omitted (unset) state.
+     */
+    fun setDoNotSell(doNotSell: Boolean?) = engine.setCcpaDoNotSell(doNotSell)
+
+    /**
+     * SET the raw IAB US-Privacy string (e.g. `1YYN`). The engine reports it via
+     * [usPrivacy] and emits it (unless `null`/blank) TOP-LEVEL on the next app-open /
+     * identify, capped at 16 chars. `null`/blank returns to the omitted state.
+     */
+    fun setUsPrivacy(usPrivacy: String?) = engine.setCcpaUsPrivacy(usPrivacy)
+
+    /** Convenience combined setter for both CCPA fields (see [setDoNotSell]/[setUsPrivacy]). */
+    fun set(doNotSell: Boolean?, usPrivacy: String?) {
+        engine.setCcpaDoNotSell(doNotSell)
+        engine.setCcpaUsPrivacy(usPrivacy)
+    }
 }
 
 /**

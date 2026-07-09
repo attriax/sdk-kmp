@@ -27,6 +27,8 @@ object AttriaxRequestBuilders {
         googlePlayInstantParam: Boolean? = null,
         attestation: Map<String, Any?>? = null,
         attStatus: String? = null,
+        doNotSell: Boolean? = null,
+        usPrivacy: String? = null,
         sdkMetadata: Map<String, Any?>? = null,
     ): AttriaxApiRequest {
         // The open DTO (api SdkV1OpenDto) NESTS context under `sdk`/`app`/`device`
@@ -94,6 +96,12 @@ object AttriaxRequestBuilders {
         // `device`). The caller passes the already-resolved wire string or null;
         // absent (UNKNOWN/omitted) → not emitted.
         attStatus?.let { body["attStatus"] = it }
+        // CCPA (Epic 10.1) is TOP-LEVEL like `attStatus` (NOT nested under `device`).
+        // `doNotSell` null → OMIT; an explicit true/false is EMITTED (a deliberate
+        // false may clear a prior server-side latch). `usPrivacy` null/blank → OMIT;
+        // else EMITTED, defensively capped at 16 chars (the DTO's @MaxLength(16)).
+        doNotSell?.let { body["doNotSell"] = it }
+        usPrivacy?.takeIf { it.isNotBlank() }?.let { body["usPrivacy"] = it.take(16) }
         return AttriaxApiRequest(AttriaxApiRequest.KIND_OPEN, AttriaxEndpoints.OPEN, body)
     }
 
@@ -189,6 +197,8 @@ object AttriaxRequestBuilders {
         clearExternalUser: Boolean = false,
         clearPropertyKeys: List<String>? = null,
         clearAllProperties: Boolean = false,
+        doNotSell: Boolean? = null,
+        usPrivacy: String? = null,
     ): AttriaxApiRequest {
         // Field names + optionality match the api SdkUserDto: `deviceId` is
         // REQUIRED, identify fields are `externalUserId`/`externalUserName`, and
@@ -203,6 +213,11 @@ object AttriaxRequestBuilders {
         properties?.let { body["properties"] = it }
         clearPropertyKeys?.takeIf { it.isNotEmpty() }?.let { body["clearPropertyKeys"] = it }
         if (clearAllProperties) body["clearAllProperties"] = true
+        // CCPA (Epic 10.1) TOP-LEVEL, same omit/cap rules as buildOpen (SdkUserDto
+        // carries `doNotSell`/`usPrivacy` too). Unknown props are rejected, so absent
+        // values are OMITTED rather than sent as null.
+        doNotSell?.let { body["doNotSell"] = it }
+        usPrivacy?.takeIf { it.isNotBlank() }?.let { body["usPrivacy"] = it.take(16) }
         return AttriaxApiRequest(AttriaxApiRequest.KIND_USER, AttriaxEndpoints.USERS, body)
     }
 

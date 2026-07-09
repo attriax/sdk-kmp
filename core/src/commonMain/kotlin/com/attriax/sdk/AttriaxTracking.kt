@@ -491,6 +491,9 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
             clearExternalUser = clearExternalUser,
             clearPropertyKeys = clearPropertyKeys,
             clearAllProperties = clearAllProperties,
+            // CCPA (Epic 10.1) rides identify TOP-LEVEL, same resolvers as the app-open.
+            doNotSell = engine.resolveDoNotSellWire(),
+            usPrivacy = engine.resolveUsPrivacyWire(),
         )
         engine.enqueueRequest(request, flushImmediately = false)
     }
