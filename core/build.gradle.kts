@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
@@ -51,6 +52,32 @@ kotlin {
         }
     }
 
+    // Apple targets (iOS device + simulator, macOS). They REQUIRE Xcode, so they are
+    // built at the Mac; on the Windows host `kotlin.native.ignoreDisabledTargets`
+    // keeps them declared-but-disabled. `applyDefaultHierarchyTemplate()` above yields
+    // the intermediate `appleMain`/`iosMain`/`macosMain` source sets (under
+    // `nativeMain`) automatically; the Apple adapters live under `appleMain` while the
+    // Windows/Linux desktop code moves to the `desktopNativeMain` set wired below, so
+    // Apple never inherits the desktop-only Ktor/POSIX/C-ABI code.
+    //
+    // Each Apple target also contributes a STATIC framework slice named `AttriaxCore`
+    // to the aggregated XCFramework (consumed by the Flutter iOS plugin + Unity iOS
+    // plugin and listed in PUBLISHING.md as a Mac-produced artifact).
+    val xcframework = XCFramework("AttriaxCore")
+    listOf(
+        iosArm64(),
+        iosSimulatorArm64(),
+        iosX64(),
+        macosArm64(),
+        macosX64(),
+    ).forEach { appleTarget ->
+        appleTarget.binaries.framework {
+            baseName = "AttriaxCore"
+            isStatic = true
+            xcframework.add(this)
+        }
+    }
+
     sourceSets {
         commonMain.dependencies {
             // Multiplatform clock + ISO-8601 formatting — replaces JVM
@@ -63,19 +90,33 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
-        // Kotlin/Native desktop targets (mingwX64 = Windows-native, linuxX64). The
-        // shared native source set gets coroutines (real off-thread background
-        // execution + delay-based scheduling) and the Ktor client core (suspend HTTP
-        // transport, bridged to the synchronous port via runBlocking). Each target's
-        // Ktor ENGINE lives in its OWN source set so a Linux-only dependency problem
-        // (Curl needs libcurl) can never break the Windows-native build.
+        // The shared native source set (parent of BOTH the desktop targets and the
+        // Apple targets) gets only the platform-neutral coroutines dependency — real
+        // off-thread background execution + delay-based scheduling used by the seam
+        // actuals that Apple also inherits. The Ktor client (desktop-only transport)
+        // moves down to `desktopNativeMain` so the Apple targets never pull it in.
         nativeMain.dependencies {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
-            implementation("io.ktor:ktor-client-core:3.0.3")
+        }
+        // Intermediate source set for the Kotlin/Native DESKTOP targets (mingwX64 =
+        // Windows-native, linuxX64). Holds the desktop-only engine code — the Ktor
+        // transport, the POSIX file store, the native desktop factory, and the C-ABI
+        // shared-library bridge (`AttriaxCApi`) — plus the Ktor client-core dependency.
+        // Sits between `nativeMain` and the two desktop targets so the Apple targets
+        // (which descend from `nativeMain` via `appleMain`) never inherit any of it.
+        val desktopNativeMain by creating {
+            dependsOn(nativeMain.get())
+            dependencies {
+                implementation("io.ktor:ktor-client-core:3.0.3")
+            }
+        }
+        val desktopNativeTest by creating {
+            dependsOn(nativeTest.get())
         }
         // WinHttp is self-contained on Windows (ships with the OS) — no external
         // native library, links cleanly on this host.
         val mingwX64Main by getting {
+            dependsOn(desktopNativeMain)
             dependencies {
                 implementation("io.ktor:ktor-client-winhttp:3.0.3")
             }
@@ -85,10 +126,13 @@ kotlin {
         // compileKotlinLinuxX64 stays green on this Windows host; only linking a
         // linuxX64 executable (done at a Linux build) needs libcurl present.
         val linuxX64Main by getting {
+            dependsOn(desktopNativeMain)
             dependencies {
                 implementation("io.ktor:ktor-client-curl:3.0.3")
             }
         }
+        val mingwX64Test by getting { dependsOn(desktopNativeTest) }
+        val linuxX64Test by getting { dependsOn(desktopNativeTest) }
         androidMain.dependencies {
             // Back the androidMain adapters (chunk 3): OkHttp transport,
             // ProcessLifecycleOwner binder, Play install-referrer client, and the
