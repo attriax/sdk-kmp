@@ -29,8 +29,27 @@ kotlin {
     // Native desktop targets buildable on this Windows host. macOS + iOS targets
     // are added at the Mac (they require Xcode); ignoreDisabledTargets keeps the
     // build green here.
-    mingwX64()
-    linuxX64()
+    //
+    // Each native desktop target ALSO emits a C-ABI shared library
+    // (`attriax_core.dll` on Windows / `libattriax_core.so` on Linux) plus the
+    // generated C header (`libattriax_core_api.h`) so desktop wrappers (Flutter FFI,
+    // Unity P/Invoke) can load the engine through the `@CName`-exported uniform
+    // JSON-dispatch bridge in `nativeMain/.../AttriaxCApi.kt` (G1). The klib
+    // publications are unaffected — this is an ADDITIONAL output per target.
+    mingwX64 {
+        binaries {
+            sharedLib("attriax_core") {
+                baseName = "attriax_core"
+            }
+        }
+    }
+    linuxX64 {
+        binaries {
+            sharedLib("attriax_core") {
+                baseName = "attriax_core"
+            }
+        }
+    }
 
     sourceSets {
         commonMain.dependencies {
