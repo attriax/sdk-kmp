@@ -29,9 +29,18 @@ DeviceIdSources, …). Platform edges are `expect`/`actual`:
 
 ## Targets
 
-Buildable on this Windows host today: `jvm`, `androidTarget`, `mingwX64`
-(Windows-native), `linuxX64` (cross). The `iosX64/iosArm64/iosSimulatorArm64`,
-`macosX64/macosArm64` targets require macOS + Xcode and are added at the Mac.
+Buildable on the Windows host: `jvm`, `androidTarget`, `mingwX64`
+(Windows-native), `linuxX64` (cross). The Apple targets
+`iosX64/iosArm64/iosSimulatorArm64` and `macosX64/macosArm64` require macOS +
+Xcode and are built at the Mac; they descend from `appleMain` (with `iosMain` /
+`macosMain` leaves) and contribute a static-framework slice to the aggregated
+`AttriaxCore` XCFramework (`./gradlew :core:assembleAttriaxCoreXCFramework`). The
+Windows/Linux desktop-only native code (Ktor transport, POSIX store, C-ABI) lives
+under the `desktopNativeMain` intermediate source set so the Apple targets never
+inherit it.
+
+> On an Intel Mac only the x64 Apple test targets (`macosX64Test`, `iosX64Test`)
+> execute; the arm64 test binaries compile but require an Apple-silicon host to run.
 
 ## Build
 
