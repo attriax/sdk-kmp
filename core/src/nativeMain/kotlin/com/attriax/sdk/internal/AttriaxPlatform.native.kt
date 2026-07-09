@@ -83,16 +83,12 @@ internal actual fun attriaxLogInfo(message: String) {
     println(message)
 }
 
-/**
- * COMPILE-ONLY placeholder: native uncaught-exception capture is NOT installed yet.
- *
- * Real OS-level capture — iOS `NSSetUncaughtExceptionHandler` (at the Mac) and POSIX
- * signal handlers (`SIGSEGV`/`SIGABRT`/...) — lands with the platform chunk. Until
- * then this returns a no-op registration so every native target (mingwX64 +
- * linuxX64) compiles and the shared engine runs. The common persist/replay path and
- * the public `recordError(fatal = true)` wrapper API still work on native; only the
- * automatic OS-level capture is deferred.
- */
-internal actual fun attriaxInstallUncaughtExceptionHandler(
-    onFatalCrash: (Throwable) -> Unit,
-): AttriaxUncaughtHandlerRegistration = AttriaxUncaughtHandlerRegistration.Noop
+// NB: `attriaxInstallUncaughtExceptionHandler` is intentionally NOT provided in this
+// shared native set. It is specialized per native family so Apple gets a real
+// OS-level handler while desktop keeps the placeholder:
+//  - desktopNativeMain (mingwX64/linuxX64): a Noop placeholder — POSIX signal-handler
+//    capture is a later desktop follow-up (AttriaxUncaughtHandler.desktop.kt),
+//  - appleMain (iOS/macOS): a real `NSSetUncaughtExceptionHandler` install
+//    (AttriaxUncaughtHandler.apple.kt).
+// The seams above (background executor, exception name, logging) are platform-neutral
+// Kotlin/Native and stay shared for both families.

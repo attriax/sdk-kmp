@@ -13,6 +13,13 @@ class AttriaxDeviceIdentityResolverTest {
         override fun advertisingId(): String? = gaid
     }
 
+    /** iOS-shaped sources: an IDFV primary + an (ATT-gated) IDFA advertising id. */
+    private class FakeAppleSources(val idfv: String?, val idfa: String?) : DeviceIdSources {
+        override fun androidSsaid(): String? = null
+        override fun advertisingId(): String? = idfa
+        override fun iosIdfv(): String? = idfv
+    }
+
     @Test
     fun prefersSsaidWhenPresent() {
         val resolver = AttriaxDeviceIdentityResolver(FakeSources("ssaid-1", "gaid-1"), collectAdvertisingId = true)
@@ -53,5 +60,57 @@ class AttriaxDeviceIdentityResolverTest {
         val resolved = resolver.resolve("fallback")
         assertEquals("ssaid-1", resolved.value)
         assertEquals(AttriaxDeviceIdSource.ANDROID_SSAID, resolved.source)
+    }
+
+    // -------- iOS branch (PARITY §2, iOS: IDFV → IDFA → persistent) --------
+
+    @Test
+    fun prefersIdfvWhenPresent() {
+        val resolver = AttriaxDeviceIdentityResolver(
+            FakeAppleSources("idfv-1", "idfa-1"),
+            collectAdvertisingId = true,
+            advertisingIdSource = AttriaxDeviceIdSource.IOS_IDFA,
+        )
+        val resolved = resolver.resolve("fallback")
+        assertEquals("idfv-1", resolved.value)
+        assertEquals(AttriaxDeviceIdSource.IOS_IDFV, resolved.source)
+        assertFalse(resolved.isFallback)
+    }
+
+    @Test
+    fun fallsBackToIdfaWhenNoIdfv() {
+        val resolver = AttriaxDeviceIdentityResolver(
+            FakeAppleSources(null, "idfa-1"),
+            collectAdvertisingId = true,
+            advertisingIdSource = AttriaxDeviceIdSource.IOS_IDFA,
+        )
+        val resolved = resolver.resolve("fallback")
+        assertEquals("idfa-1", resolved.value)
+        assertEquals(AttriaxDeviceIdSource.IOS_IDFA, resolved.source)
+    }
+
+    @Test
+    fun idfvStillWinsEvenWhenAdvertisingDisabled() {
+        val resolver = AttriaxDeviceIdentityResolver(
+            FakeAppleSources("idfv-1", "idfa-1"),
+            collectAdvertisingId = false,
+            advertisingIdSource = AttriaxDeviceIdSource.IOS_IDFA,
+        )
+        val resolved = resolver.resolve("fallback")
+        assertEquals("idfv-1", resolved.value)
+        assertEquals(AttriaxDeviceIdSource.IOS_IDFV, resolved.source)
+    }
+
+    @Test
+    fun skipsIdfaWhenCollectionDisabled() {
+        val resolver = AttriaxDeviceIdentityResolver(
+            FakeAppleSources(null, "idfa-1"),
+            collectAdvertisingId = false,
+            advertisingIdSource = AttriaxDeviceIdSource.IOS_IDFA,
+        )
+        val resolved = resolver.resolve("fallback")
+        assertEquals("fallback", resolved.value)
+        assertEquals(AttriaxDeviceIdSource.PERSISTENT_STORAGE, resolved.source)
+        assertTrue(resolved.isFallback)
     }
 }

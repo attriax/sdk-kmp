@@ -124,12 +124,27 @@ interface AttriaxLifecycleBinder {
 /**
  * Supplies the raw native device-id candidates used by [AttriaxDeviceIdentityResolver].
  * The Android implementation reads Settings.Secure ANDROID_ID and (when
- * permitted) the Advertising ID; both may be null/unavailable.
+ * permitted) the Advertising ID; the Apple implementation reads
+ * `identifierForVendor` (IDFV) and (when ATT-authorized) the IDFA; every candidate
+ * may be null/unavailable.
  */
 interface DeviceIdSources {
-    /** Settings.Secure ANDROID_ID (SSAID), or null when unavailable. */
+    /** Settings.Secure ANDROID_ID (SSAID), or null when unavailable / not Android. */
     fun androidSsaid(): String?
 
-    /** Advertising ID (GAID), or null when unavailable / not collected. */
+    /**
+     * Advertising ID — Android GAID or Apple ATT-authorized IDFA — or null when
+     * unavailable / not collected. The [AttriaxDeviceIdentityResolver] stamps the
+     * per-platform source slug (`android_gaid` / `ios_idfa`) via its
+     * `advertisingIdSource`.
+     */
     fun advertisingId(): String?
+
+    /**
+     * Apple `identifierForVendor` (IDFV), or null off-Apple / when unavailable.
+     * Defaulted to null so the Android + desktop sources are unchanged; the Apple
+     * source (`AttriaxAppleDeviceIdSources`) overrides it. Preferred over the
+     * advertising id in resolution (PARITY §2, iOS branch: IDFV → IDFA → persistent).
+     */
+    fun iosIdfv(): String? = null
 }
