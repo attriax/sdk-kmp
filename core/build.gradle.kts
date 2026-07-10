@@ -38,6 +38,16 @@ kotlin {
     // JSON-dispatch bridge in `nativeMain/.../AttriaxCApi.kt` (G1). The klib
     // publications are unaffected — this is an ADDITIONAL output per target.
     mingwX64 {
+        // OS CSPRNG (BCryptGenRandom) for the desktop secure-random seam — bcrypt.dll
+        // ships with Windows, so it links cleanly on this host.
+        compilations.getByName("main") {
+            cinterops {
+                create("bcrypt") {
+                    defFile(project.file("src/nativeInterop/cinterop/bcrypt.def"))
+                    packageName("attriax.bcrypt")
+                }
+            }
+        }
         binaries {
             sharedLib("attriax_core") {
                 baseName = "attriax_core"

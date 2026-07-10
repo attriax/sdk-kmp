@@ -1,0 +1,12 @@
+linkerOpts = -lbcrypt
+---
+#include <windows.h>
+#include <bcrypt.h>
+
+// Thin wrapper around the CNG system-preferred CSPRNG so the Kotlin side gets a
+// clean signature (no NTSTATUS/PUCHAR/ULONG marshalling). hAlgorithm=NULL with
+// BCRYPT_USE_SYSTEM_PREFERRED_RNG (0x00000002); returns the NTSTATUS as int
+// (0 == STATUS_SUCCESS).
+static int ax_secure_random_bytes(unsigned char *buf, int len) {
+    return (int) BCryptGenRandom(NULL, buf, (unsigned long) len, 0x00000002);
+}
