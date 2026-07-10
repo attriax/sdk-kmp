@@ -48,9 +48,12 @@ import kotlinx.cinterop.toKString
  *   - Every `char*` returned by `attriax_dispatch` is heap-allocated (nativeHeap)
  *     and MUST be released by the caller via `attriax_free_string`. Passing a
  *     pointer not produced here to `attriax_free_string` is undefined behavior.
- *   - `configJson`/`method`/`argsJson`/`eventJson` are NUL-terminated UTF-8. The
- *     `eventJson` handed to the C callback is valid ONLY for the duration of the
- *     call — the callback MUST copy it before returning; the wrapper frees nothing.
+ *   - `configJson`/`method`/`argsJson`/`eventJson` are NUL-terminated UTF-8. Like an
+ *     `attriax_dispatch` result, `eventJson` is heap-allocated (nativeHeap) and its
+ *     OWNERSHIP transfers to the C callback: the callback MUST release it via
+ *     `attriax_free_string` when done. Delivery may be asynchronous across a thread
+ *     boundary (e.g. a Dart `NativeCallable.listener` trampoline), so the wrapper
+ *     does NOT free it — freeing after the call returns would be a use-after-free.
  *
  *  THREADING:
  *   - `attriax_dispatch` is synchronous (the native transport is `runBlocking`-
@@ -87,10 +90,14 @@ private class AttriaxNativeHandle(val engine: Attriax) {
     var alive: Boolean = true
 
     /**
-     * Marshal [json] to a caller-transient C string and invoke the registered
-     * callback. The string is freed once the callback returns (it may arrive on an
-     * engine background thread — see the file header). No callback / dead handle →
-     * a silent no-op. Never throws into the engine.
+     * Marshal [json] to a heap-allocated C string and invoke the registered
+     * callback, transferring OWNERSHIP of the string to it (the callback releases it
+     * via `attriax_free_string`). Ownership transfer — rather than free-after-return
+     * — is required because the callback may deliver the event asynchronously across
+     * a thread boundary (e.g. a Dart `NativeCallable.listener` trampoline), so the
+     * bytes must outlive this call; freeing here would be a use-after-free. No
+     * callback / dead handle → a silent no-op with nothing allocated. Never throws
+     * into the engine.
      */
     fun emit(json: String) {
         if (!alive) return
@@ -100,7 +107,7 @@ private class AttriaxNativeHandle(val engine: Attriax) {
             cb.invoke(ptr, userData)
         } catch (e: Throwable) {
             // A misbehaving C callback must never crash a background engine thread.
-        } finally {
+            // The callback never took ownership on throw, so reclaim the string here.
             nativeHeap.free(ptr)
         }
     }
