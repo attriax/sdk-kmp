@@ -93,12 +93,24 @@ kotlin {
 
     // macOS ALSO emits a flat C-ABI shared library (`libattriax_core.dylib`) + generated
     // header (`libattriax_core_api.h`) — the artifact the Unity macOS binding dlopen's,
-    // mirroring the mingw/linux desktop dylibs. iOS forbids dlopen of an app dylib, so
-    // the iOS targets keep ONLY the static framework; Unity iOS links its `@CName` C
-    // symbols statically through `[DllImport("__Internal")]`.
+    // mirroring the mingw/linux desktop dylibs.
     listOf(macosArm64(), macosX64()).forEach { macTarget ->
         macTarget.binaries {
             sharedLib("attriax_core") {
+                baseName = "attriax_core"
+            }
+        }
+    }
+
+    // iOS forbids dlopen of an app dylib (IL2CPP statically links), so it ALSO emits a
+    // flat C-ABI STATIC library (`libattriax_core.a`) + header per target. A Kotlin/Native
+    // FRAMEWORK exports only its Obj-C surface — the top-level `@CName` C functions are
+    // NOT in the framework archive — so Unity iOS links this static lib instead and
+    // P/Invokes `attriax_create`/`attriax_dispatch`/… via `[DllImport("__Internal")]`. The
+    // static framework (above) is retained for the Flutter iOS plugin's Obj-C/Kotlin API.
+    listOf(iosArm64(), iosSimulatorArm64(), iosX64()).forEach { iosTarget ->
+        iosTarget.binaries {
+            staticLib("attriax_core") {
                 baseName = "attriax_core"
             }
         }
