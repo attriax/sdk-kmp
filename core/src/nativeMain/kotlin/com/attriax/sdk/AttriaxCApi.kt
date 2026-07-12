@@ -119,9 +119,11 @@ private class AttriaxNativeHandle(val engine: Attriax) {
 
 /**
  * Build an engine from [configJson] (see [buildConfig]) persisting under [dataDir]
- * (empty/null → [AttriaxDesktopNative.defaultDataDir]) and return an opaque handle,
- * or `null` when construction fails (malformed config maps to defaults and does not
- * fail; a genuine engine-construction error yields null). Engine-side listeners are
+ * (empty/null → the platform default via [attriaxNativeDefaultDataDir]) and return an
+ * opaque handle, or `null` when construction fails (malformed config maps to defaults
+ * and does not fail; a genuine engine-construction error yields null). The engine
+ * itself is built by the per-platform [attriaxNativeCreateEngine] seam (desktop →
+ * Ktor/file-store; apple → NSURLSession/NSUserDefaults). Engine-side listeners are
  * attached here so callbacks route through the handle even before one is registered.
  */
 @CName("attriax_create")
@@ -129,8 +131,8 @@ fun attriaxCreate(configJson: CPointer<ByteVar>?, dataDir: CPointer<ByteVar>?): 
     return try {
         val config = buildConfig(decodeObjectOrEmpty(configJson?.toKString()))
         val dir = dataDir?.toKString()?.takeIf { it.isNotBlank() }
-            ?: AttriaxDesktopNative.defaultDataDir()
-        val engine = AttriaxDesktopNative.create(config, dir)
+            ?: attriaxNativeDefaultDataDir()
+        val engine = attriaxNativeCreateEngine(config, dir)
         val handle = AttriaxNativeHandle(engine)
         // Route the two engine event streams through the handle callback (which may
         // be null until attriax_register_event_callback is called → the emit no-ops).

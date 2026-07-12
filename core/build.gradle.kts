@@ -67,12 +67,15 @@ kotlin {
     // keeps them declared-but-disabled. `applyDefaultHierarchyTemplate()` above yields
     // the intermediate `appleMain`/`iosMain`/`macosMain` source sets (under
     // `nativeMain`) automatically; the Apple adapters live under `appleMain` while the
-    // Windows/Linux desktop code moves to the `desktopNativeMain` set wired below, so
-    // Apple never inherits the desktop-only Ktor/POSIX/C-ABI code.
+    // Windows/Linux desktop-only TRANSPORT code moves to the `desktopNativeMain` set
+    // wired below, so Apple never inherits the desktop-only Ktor/POSIX code. The C-ABI
+    // JSON-dispatch bridge (`AttriaxCApi`) itself lives in `nativeMain` (shared by all
+    // native targets) so the Apple targets export it too — see the macOS sharedLib and
+    // the Unity iOS `__Internal` linking below.
     //
-    // Each Apple target also contributes a STATIC framework slice named `AttriaxCore`
-    // to the aggregated XCFramework (consumed by the Flutter iOS plugin + Unity iOS
-    // plugin and listed in PUBLISHING.md as a Mac-produced artifact).
+    // Each Apple target contributes a STATIC framework slice named `AttriaxCore` to the
+    // aggregated XCFramework (consumed by the Flutter iOS plugin + Unity iOS plugin and
+    // listed in PUBLISHING.md as a Mac-produced artifact).
     val xcframework = XCFramework("AttriaxCore")
     listOf(
         iosArm64(),
@@ -85,6 +88,19 @@ kotlin {
             baseName = "AttriaxCore"
             isStatic = true
             xcframework.add(this)
+        }
+    }
+
+    // macOS ALSO emits a flat C-ABI shared library (`libattriax_core.dylib`) + generated
+    // header (`libattriax_core_api.h`) — the artifact the Unity macOS binding dlopen's,
+    // mirroring the mingw/linux desktop dylibs. iOS forbids dlopen of an app dylib, so
+    // the iOS targets keep ONLY the static framework; Unity iOS links its `@CName` C
+    // symbols statically through `[DllImport("__Internal")]`.
+    listOf(macosArm64(), macosX64()).forEach { macTarget ->
+        macTarget.binaries {
+            sharedLib("attriax_core") {
+                baseName = "attriax_core"
+            }
         }
     }
 
@@ -110,10 +126,12 @@ kotlin {
         }
         // Intermediate source set for the Kotlin/Native DESKTOP targets (mingwX64 =
         // Windows-native, linuxX64). Holds the desktop-only engine code — the Ktor
-        // transport, the POSIX file store, the native desktop factory, and the C-ABI
-        // shared-library bridge (`AttriaxCApi`) — plus the Ktor client-core dependency.
-        // Sits between `nativeMain` and the two desktop targets so the Apple targets
-        // (which descend from `nativeMain` via `appleMain`) never inherit any of it.
+        // transport, the POSIX file store, and the native desktop factory
+        // (`AttriaxDesktopNative`, the desktop `attriaxNativeCreateEngine` actual) —
+        // plus the Ktor client-core dependency. Sits between `nativeMain` and the two
+        // desktop targets so the Apple targets (which descend from `nativeMain` via
+        // `appleMain`) never inherit any of it. The C-ABI bridge itself is in
+        // `nativeMain`, shared with Apple.
         val desktopNativeMain by creating {
             dependsOn(nativeMain.get())
             dependencies {
