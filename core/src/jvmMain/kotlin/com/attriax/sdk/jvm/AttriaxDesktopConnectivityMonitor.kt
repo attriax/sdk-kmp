@@ -1,25 +1,109 @@
 package com.attriax.sdk.jvm
 
 import com.attriax.sdk.internal.ConnectivityMonitor
+import java.net.NetworkInterface
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 
 /**
- * Desktop [ConnectivityMonitor]. A JVM desktop host is generally online and the
- * JDK has no cheap, reliable "connectivity restored" signal equivalent to
- * Android's `ConnectivityManager` callback, so this reports always-connected and
- * treats register/unregister as no-ops (there are no restoration events to fire).
+ * JVM-desktop [ConnectivityMonitor] (PARITY §7 — connectivity-restore re-flush).
  *
- * Consequence vs. Android: the connectivity-restore re-flush (PARITY §7) never
- * fires here. That is acceptable on desktop — the queue still drains on the normal
- * flush cadence and on the next app-open — and a reachability probe (e.g. opening a
- * socket to the API host) is deliberately out of scope: it would add latency and
- * false negatives behind proxies/captive portals without a real gain, since the
- * transport already surfaces offline sends as retryable transport failures.
+ * The JDK has no push callback equivalent to Android's `ConnectivityManager`, so this
+ * detects connectivity by polling [NetworkInterface]: the host is "connected" when at
+ * least one non-loopback interface is `isUp` and carries a bound address. On an
+ * offline → online edge the monitor invokes
+ * [ConnectivityMonitor.Listener.onConnectivityRestored], matching the Android
+ * ([com.attriax.sdk.android.AttriaxConnectivityMonitor]) and Apple
+ * (`AttriaxAppleConnectivityMonitor`, NWPathMonitor) actuals so the engine re-flushes
+ * a queue that stalled while offline.
+ *
+ * The poll runs OFF the caller thread on a single daemon
+ * [ScheduledExecutorService] and never leaks — [unregister] stops it once the last
+ * listener is gone. It is deliberately pure-JDK (no reachability probe / socket
+ * connect): a local interface scan has no latency and no captive-portal false
+ * negatives, and the transport already surfaces genuine offline sends as retryable
+ * transport failures.
  */
-class AttriaxDesktopConnectivityMonitor : ConnectivityMonitor {
+class AttriaxDesktopConnectivityMonitor(
+    private val pollIntervalMs: Long = DEFAULT_POLL_INTERVAL_MS,
+) : ConnectivityMonitor {
 
-    override fun isConnected(): Boolean = true
+    private val listeners = CopyOnWriteArrayList<ConnectivityMonitor.Listener>()
 
-    override fun register(listener: ConnectivityMonitor.Listener) = Unit
+    private val executor: ScheduledExecutorService =
+        Executors.newSingleThreadScheduledExecutor { r ->
+            Thread(r, "attriax-connectivity").apply { isDaemon = true }
+        }
 
-    override fun unregister(listener: ConnectivityMonitor.Listener) = Unit
+    // Guarded by `this`. Last observed connectivity, for offline → online edge detection.
+    private var lastConnected: Boolean = false
+    private var poll: ScheduledFuture<*>? = null
+
+    override fun isConnected(): Boolean = hasActiveInterface()
+
+    @Synchronized
+    override fun register(listener: ConnectivityMonitor.Listener) {
+        listeners.addIfAbsent(listener)
+        if (poll == null) {
+            // Seed the baseline so the first poll only fires on a real transition.
+            lastConnected = hasActiveInterface()
+            poll = executor.scheduleAtFixedRate(
+                { pollOnce() },
+                pollIntervalMs,
+                pollIntervalMs,
+                TimeUnit.MILLISECONDS,
+            )
+        }
+    }
+
+    @Synchronized
+    override fun unregister(listener: ConnectivityMonitor.Listener) {
+        listeners.remove(listener)
+        if (listeners.isEmpty()) {
+            poll?.cancel(false)
+            poll = null
+        }
+    }
+
+    private fun pollOnce() {
+        val nowConnected = hasActiveInterface()
+        val restored = synchronized(this) {
+            val wasConnected = lastConnected
+            lastConnected = nowConnected
+            // Fire only on the offline → online edge (PARITY §7 restore re-flush).
+            !wasConnected && nowConnected
+        }
+        if (restored) {
+            listeners.forEach {
+                try {
+                    it.onConnectivityRestored()
+                } catch (e: Exception) {
+                    // A listener failure must never crash the host or kill the poll.
+                }
+            }
+        }
+    }
+
+    /** True when any non-loopback interface is up and carries a bound address. */
+    private fun hasActiveInterface(): Boolean = try {
+        val interfaces = NetworkInterface.getNetworkInterfaces() ?: return false
+        interfaces.asSequence().any { ni ->
+            !ni.isLoopback && ni.isUp && ni.inetAddresses.hasMoreElements()
+        }
+    } catch (e: Exception) {
+        // Enumeration can fail transiently (e.g. SocketException); treat as offline
+        // rather than throwing into the poll thread.
+        false
+    }
+
+    fun shutdown() {
+        executor.shutdownNow()
+    }
+
+    private companion object {
+        const val DEFAULT_POLL_INTERVAL_MS = 15_000L
+    }
 }

@@ -1,6 +1,7 @@
 package com.attriax.sdk
 
 import com.attriax.sdk.desktop.AttriaxKtorHttpClient
+import com.attriax.sdk.desktop.AttriaxNativeBrowserOpener
 import com.attriax.sdk.desktop.AttriaxNativeConnectivityMonitor
 import com.attriax.sdk.desktop.AttriaxNativeDeviceIdSources
 import com.attriax.sdk.desktop.AttriaxNativeFileKeyValueStore
@@ -29,14 +30,18 @@ import platform.posix.getenv
  *  - the single long-lived [AttriaxKtorHttpClient] transport (Ktor over the
  *    per-target engine — WinHttp on Windows, Curl on Linux) stamped with the
  *    mandatory real, isbot-passing User-Agent (`attriax-native-sdk`; PARITY §8),
- *  - [AttriaxNativeConnectivityMonitor] (always-online, no restore events),
+ *  - [AttriaxNativeConnectivityMonitor] (OS connectivity poll —
+ *    `InternetGetConnectedState` on Windows, `getifaddrs` on Linux; fires the
+ *    offline→online restore re-flush, PARITY §7),
  *  - the device-identity resolver over [AttriaxNativeDeviceIdSources] (no
- *    SSAID/GAID → the persistent generated fallback id), and
- *  - [AttriaxNativeScheduler] for the off-thread session heartbeat / deferred flush.
+ *    SSAID/GAID → the persistent generated fallback id),
+ *  - [AttriaxNativeScheduler] for the off-thread session heartbeat / deferred flush, and
+ *  - [AttriaxNativeBrowserOpener] (`ShellExecuteW` on Windows, `xdg-open` on Linux)
+ *    for deep-link browser-fallback opens (PARITY §6).
  *
- * Install-referrer, attestation, lifecycle-binding, and browser-open stay at their
- * engine defaults (Unavailable / Noop): a native desktop host has no Play services
- * and no process-lifecycle owner. Call [Attriax.init] afterwards to bootstrap.
+ * Install-referrer, attestation, and lifecycle-binding stay at their engine defaults
+ * (Unavailable / Noop): a native desktop host has no Play services and no
+ * process-lifecycle owner. Call [Attriax.init] afterwards to bootstrap.
  */
 object AttriaxDesktopNative {
     /** SDK release version (shared with the Flutter/Android/JVM reference). */
@@ -80,10 +85,11 @@ object AttriaxDesktopNative {
             context = snapshot,
             deviceIdentityStore = deviceIdentityStore,
             scheduler = AttriaxNativeScheduler(),
-            // installReferrerProvider / lifecycleBinderFactory / browserOpener are left
-            // at their engine defaults (Unavailable / Noop): desktop has no Play services
-            // and no ProcessLifecycleOwner. flush/consent executors default from the
-            // native background-executor seam (a real single background thread).
+            browserOpener = AttriaxNativeBrowserOpener(),
+            // installReferrerProvider / lifecycleBinderFactory are left at their engine
+            // defaults (Unavailable / Noop): desktop has no Play services and no
+            // ProcessLifecycleOwner. flush/consent executors default from the native
+            // background-executor seam (a real single background thread).
         )
     }
 

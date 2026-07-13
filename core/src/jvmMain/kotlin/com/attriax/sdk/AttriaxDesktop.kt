@@ -8,6 +8,7 @@ import com.attriax.sdk.internal.withDeviceContext
 import com.attriax.sdk.jvm.AttriaxDesktopConnectivityMonitor
 import com.attriax.sdk.jvm.AttriaxDesktopDeviceIdSources
 import com.attriax.sdk.jvm.AttriaxFileKeyValueStore
+import com.attriax.sdk.jvm.AttriaxJvmBrowserOpener
 import com.attriax.sdk.jvm.AttriaxJvmHttpClient
 import com.attriax.sdk.jvm.AttriaxJvmScheduler
 import java.io.File
@@ -22,14 +23,17 @@ import java.util.TimeZone
  *  - [AttriaxFileKeyValueStore] durable file persistence (survives restarts),
  *  - the single long-lived [AttriaxJvmHttpClient] transport (pure JDK
  *    `HttpURLConnection`) stamped with the mandatory real User-Agent (PARITY §8),
- *  - [AttriaxDesktopConnectivityMonitor] (always-online, no restore events),
+ *  - [AttriaxDesktopConnectivityMonitor] (NetworkInterface poll; fires the
+ *    offline→online restore re-flush, PARITY §7),
  *  - the device-identity resolver over [AttriaxDesktopDeviceIdSources] (no
- *    SSAID/GAID → the persistent generated fallback id), and
- *  - [AttriaxJvmScheduler] for the off-thread session heartbeat / deferred flush.
+ *    SSAID/GAID → the persistent generated fallback id),
+ *  - [AttriaxJvmScheduler] for the off-thread session heartbeat / deferred flush, and
+ *  - [AttriaxJvmBrowserOpener] (`java.awt.Desktop.browse`) for deep-link
+ *    browser-fallback opens (PARITY §6).
  *
- * Install-referrer, attestation, lifecycle-binding, and browser-open stay at their
- * engine defaults (Unavailable / Noop): a JVM desktop has no Play services and no
- * process-lifecycle owner. Call [Attriax.init] afterwards to bootstrap.
+ * Install-referrer, attestation, and lifecycle-binding stay at their engine defaults
+ * (Unavailable / Noop): a JVM desktop has no Play services and no process-lifecycle
+ * owner. Call [Attriax.init] afterwards to bootstrap.
  */
 object AttriaxDesktop {
     /** SDK release version (shared with the Flutter/Android reference). */
@@ -73,9 +77,10 @@ object AttriaxDesktop {
             context = snapshot,
             deviceIdentityStore = deviceIdentityStore,
             scheduler = AttriaxJvmScheduler(),
-            // installReferrerProvider / lifecycleBinderFactory / browserOpener are left
-            // at their engine defaults (Unavailable / Noop): desktop has no Play services
-            // and no ProcessLifecycleOwner. flush/consent executors default from the jvm
+            browserOpener = AttriaxJvmBrowserOpener(),
+            // installReferrerProvider / lifecycleBinderFactory are left at their engine
+            // defaults (Unavailable / Noop): desktop has no Play services and no
+            // ProcessLifecycleOwner. flush/consent executors default from the jvm
             // background-executor seam.
         )
     }
