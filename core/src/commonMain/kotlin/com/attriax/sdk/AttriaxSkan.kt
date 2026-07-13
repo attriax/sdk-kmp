@@ -47,4 +47,18 @@ class AttriaxSkan internal constructor(private val engine: Attriax) {
             coarseValue = coarseValue,
             lockWindow = lockWindow,
         )
+
+    /**
+     * Pull the project's configured SKAN conversion-value rules from the backend
+     * (Epic 12.2 CV management). Returns the resolved [AttriaxSkanConversionConfig],
+     * or `null` when the project has no schema, the token is unknown, or the pull
+     * fails (offline / malformed) — it is best-effort and never throws.
+     *
+     * The SDK does NOT auto-apply these rules; the host evaluates them against its own
+     * event/revenue state and calls [updateConversionValue]. This is a low-frequency
+     * config pull (once per install / on schema change). Performs blocking network I/O
+     * — call off the main thread.
+     */
+    fun fetchConversionConfig(): AttriaxSkanConversionConfig? =
+        engine.fetchSkanConversionConfig()
 }

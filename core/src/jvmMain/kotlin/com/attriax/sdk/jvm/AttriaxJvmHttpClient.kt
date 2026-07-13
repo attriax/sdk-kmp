@@ -36,12 +36,18 @@ class AttriaxJvmHttpClient(
     private val requestTimeoutMs: Long,
 ) : HttpClient {
 
-    override fun post(path: String, body: String): HttpResponse {
+    override fun post(path: String, body: String): HttpResponse =
+        send(path, method = "POST", body = body)
+
+    override fun get(path: String): HttpResponse =
+        send(path, method = "GET", body = null)
+
+    private fun send(path: String, method: String, body: String?): HttpResponse {
         val url = URI.create(joinUrl(baseUrl, path)).toURL()
         val connection = try {
             (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                doOutput = true
+                requestMethod = method
+                doOutput = body != null
                 // Guard against a slow endpoint: connect + read both honor the config
                 // timeout, then surface as AttriaxTimeoutException (retryable), mirroring
                 // OkHttp's call/connect/read timeouts.
@@ -56,12 +62,14 @@ class AttriaxJvmHttpClient(
         }
 
         try {
-            try {
-                connection.outputStream.use { it.write(body.encodeToByteArray()) }
-            } catch (e: SocketTimeoutException) {
-                throw AttriaxTimeoutException(cause = e)
-            } catch (e: IOException) {
-                throw AttriaxTransportException(cause = e)
+            if (body != null) {
+                try {
+                    connection.outputStream.use { it.write(body.encodeToByteArray()) }
+                } catch (e: SocketTimeoutException) {
+                    throw AttriaxTimeoutException(cause = e)
+                } catch (e: IOException) {
+                    throw AttriaxTransportException(cause = e)
+                }
             }
 
             val statusCode = try {

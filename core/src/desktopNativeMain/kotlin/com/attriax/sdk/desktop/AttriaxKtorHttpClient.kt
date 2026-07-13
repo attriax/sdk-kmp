@@ -12,12 +12,13 @@ import io.ktor.client.network.sockets.SocketTimeoutException
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.header
-import io.ktor.client.request.post
+import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse as KtorHttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.Headers
+import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
@@ -68,11 +69,20 @@ class AttriaxKtorHttpClient(
     }
 
     override fun post(path: String, body: String): HttpResponse = runBlocking {
+        request(path, method = HttpMethod.Post, body = body)
+    }
+
+    override fun get(path: String): HttpResponse = runBlocking {
+        request(path, method = HttpMethod.Get, body = null)
+    }
+
+    private suspend fun request(path: String, method: HttpMethod, body: String?): HttpResponse {
         val response: KtorHttpResponse = try {
-            client.post(joinUrl(baseUrl, path)) {
+            client.request(joinUrl(baseUrl, path)) {
+                this.method = method
                 header("User-Agent", userAgent)
                 contentType(ContentType.Application.Json)
-                setBody(body)
+                if (body != null) setBody(body)
             }
         } catch (e: HttpRequestTimeoutException) {
             throw AttriaxTimeoutException(cause = e)
@@ -112,7 +122,7 @@ class AttriaxKtorHttpClient(
             )
         }
 
-        HttpResponse(
+        return HttpResponse(
             statusCode = statusCode,
             body = unwrapEnvelope(rawBody),
             headers = headers,

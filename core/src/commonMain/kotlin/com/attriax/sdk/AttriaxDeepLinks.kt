@@ -27,10 +27,17 @@ class AttriaxDeepLinks internal constructor(private val engine: Attriax) {
 
     /**
      * Mark the initial-link probe complete when the launch carried no deep link, so
-     * a [waitForInitialDeepLink] caller unblocks. Used by the androidMain
-     * `handleLaunchIntent` extension when the launch intent is not a link.
+     * a [waitForInitialDeepLink] caller unblocks and [initialDeepLinkResolved] flips
+     * to true (with [initialDeepLink] staying null — "resolved, none found").
+     *
+     * Hosts that manage their own launch flow (iOS AppDelegate / SceneDelegate that
+     * launched WITHOUT a deep link) call this so a `waitForInitialDeepLink` observer
+     * never blocks for the full timeout. Idempotent — a link that later arrives via
+     * [handleUri] with `isInitialLink = true` still resolves normally. Also used by
+     * the androidMain `handleLaunchIntent` extension when the launch intent is not a
+     * link.
      */
-    internal fun completeInitialLinkIfAbsent() {
+    fun completeInitialLinkIfAbsent() {
         engine.completeInitialDeepLinkIfAbsent()
     }
 

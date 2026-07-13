@@ -86,3 +86,66 @@ data class AttriaxSkanConfig(
     val enabled: Boolean = true,
     val registerFirstLaunchValue: Boolean = true,
 )
+
+/**
+ * The project's configured SKAN conversion-value rules, pulled from the backend by
+ * [AttriaxSkan.fetchConversionConfig].
+ *
+ * Mirrors the api `SdkCvConfigResponse` (Epic 12.2, `cv-rule-transformer.ts`):
+ * `{ schemaVersion, schemaUpdatedAt, enabled, rules[], disclaimer }`. The SDK does
+ * NOT compose a conversion value from these rules on its own (that needs the host's
+ * per-event/revenue state); it surfaces the ordered rule list so the host can
+ * evaluate it and call [AttriaxSkan.updateConversionValue].
+ */
+data class AttriaxSkanConversionConfig(
+    val schemaVersion: Int? = null,
+    val schemaUpdatedAt: String? = null,
+    val enabled: Boolean,
+    val rules: List<AttriaxSkanCvRule>,
+    val disclaimer: String? = null,
+)
+
+/**
+ * One SKAN CV rule: "when [whenEvent] (and its [whenConditions]) is satisfied, group
+ * [groupId] contributes [bitContribution] (`rank << startBit`) to the fine value, and
+ * the update should adopt [coarseValue] / [lockWindow]."
+ */
+data class AttriaxSkanCvRule(
+    val id: String,
+    val groupId: String? = null,
+    val groupDisplayName: String? = null,
+    val startBit: Int,
+    val bitCount: Int,
+    val rank: Int,
+    val bitContribution: Int,
+    val whenEvent: String,
+    val whenConditions: List<AttriaxSkanCvCondition>,
+    val whenRevenue: AttriaxSkanCvRevenueCondition? = null,
+    val coarseValue: AttriaxSkanCoarseValue? = null,
+    val lockWindow: Boolean = false,
+)
+
+/** A parameter condition that must ALSO hold for a rule to fire. */
+data class AttriaxSkanCvCondition(
+    val paramKey: String,
+    val operator: String,
+    /** Opaque comparison value (string / number / bool), preserved type-faithfully. */
+    val value: AttriaxSkanCvValue? = null,
+)
+
+/** Convenience view of a `__revenue` condition on a rule (or null). */
+data class AttriaxSkanCvRevenueCondition(
+    val operator: String,
+    val value: AttriaxSkanCvValue? = null,
+)
+
+/**
+ * A JSON-scalar condition value (string / number / bool), kept type-preserving so the
+ * host can compare against its own event params. Mirrors the Swift facade's
+ * `AttriaxSkanCvValue` enum.
+ */
+sealed class AttriaxSkanCvValue {
+    data class StringValue(val value: String) : AttriaxSkanCvValue()
+    data class NumberValue(val value: Double) : AttriaxSkanCvValue()
+    data class BoolValue(val value: Boolean) : AttriaxSkanCvValue()
+}

@@ -61,6 +61,21 @@ interface HttpClient {
      * @throws AttriaxTransportException on any other transport/IO failure.
      */
     fun post(path: String, body: String): HttpResponse
+
+    /**
+     * GET [path] (appended to the configured base URL). Same headers, timeout,
+     * envelope-unwrapping, and exception classification as [post]. Used for the few
+     * read-only config pulls (e.g. the SKAN conversion-value config).
+     *
+     * A default is provided so the pure engine's test fakes need not implement it
+     * unless they exercise a GET path; every real platform transport overrides it.
+     * @return the successful (2xx) response, envelope-unwrapped.
+     * @throws AttriaxHttpException on non-2xx.
+     * @throws AttriaxTimeoutException on timeout.
+     * @throws AttriaxTransportException on any other transport/IO failure.
+     */
+    fun get(path: String): HttpResponse =
+        throw AttriaxTransportException("GET is not supported by this transport")
 }
 
 /** Connectivity port. Implementations invoke [Listener.onConnectivityRestored] on regain. */

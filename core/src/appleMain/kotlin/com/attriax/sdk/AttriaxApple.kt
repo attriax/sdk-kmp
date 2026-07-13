@@ -47,11 +47,19 @@ object AttriaxApple {
      * Build a runtime for [config]. [userAgent] is the wrapper-supplied real WKWebView
      * Safari UA (the Flutter/Unity iOS shim captures it); when null the Apple layer
      * resolves the UA itself (live WKWebView probe off the main thread, else a
-     * Safari-shaped fallback). Call [Attriax.init] afterwards.
+     * Safari-shaped fallback).
+     *
+     * [advertisingIdSupplier] lets a host provide the advertising id (IDFA) itself —
+     * e.g. a wrapper that already read `ASIdentifierManager` under its own ATT flow.
+     * When non-null AND [AttriaxConfig.collectAdvertisingId] is true, its value is
+     * used AHEAD of the internal ATT-gated IDFA resolution (which is consulted only
+     * when the supplier yields null/blank). When null, resolution falls back entirely
+     * to the internal ATT-gated seam. Call [Attriax.init] afterwards.
      */
     fun create(
         config: AttriaxConfig,
         userAgent: String? = null,
+        advertisingIdSupplier: (() -> String?)? = null,
     ): Attriax {
         val store = AttriaxAppleUserDefaultsStore()
 
@@ -65,9 +73,15 @@ object AttriaxApple {
         )
 
         // IDFA is gated on ATT authorization: prefer a wrapper-supplied ATT status,
-        // else read the platform ATT seam (never prompts).
+        // else read the platform ATT seam (never prompts). A caller-provided
+        // advertisingIdSupplier (when present) overrides that internal resolution.
         val attStatusProvider: () -> AttriaxAttStatus = { config.attStatus ?: attriaxAttStatus() }
-        val sources = appleDeviceIdSources(config.collectAdvertisingId, attStatusProvider)
+        val platformSources = appleDeviceIdSources(config.collectAdvertisingId, attStatusProvider)
+        val sources = if (advertisingIdSupplier != null) {
+            AttriaxSuppliedAdvertisingIdSources(platformSources, advertisingIdSupplier)
+        } else {
+            platformSources
+        }
         val resolver = AttriaxDeviceIdentityResolver(
             sources = sources,
             collectAdvertisingId = config.collectAdvertisingId,
@@ -116,3 +130,22 @@ internal expect fun appleLifecycleBinder(
 
 /** The platform browser opener for deep-link browser-fallback URLs. */
 internal expect fun appleBrowserOpener(): AttriaxBrowserOpener
+
+/**
+ * [DeviceIdSources] decorator that honors a caller-supplied advertising-id
+ * [supplier] AHEAD of the wrapped platform source. The supplier value wins when it
+ * yields a non-blank id; otherwise resolution falls through to [delegate]'s internal
+ * (ATT-gated) advertising id. The primary native ids ([iosIdfv]/[androidSsaid]) are
+ * passed straight through — the supplier only participates in the advertising-id
+ * step, and only when [AttriaxConfig.collectAdvertisingId] is true (the resolver
+ * skips the advertising candidate entirely when collection is off).
+ */
+private class AttriaxSuppliedAdvertisingIdSources(
+    private val delegate: DeviceIdSources,
+    private val supplier: () -> String?,
+) : DeviceIdSources {
+    override fun androidSsaid(): String? = delegate.androidSsaid()
+    override fun iosIdfv(): String? = delegate.iosIdfv()
+    override fun advertisingId(): String? =
+        supplier()?.takeIf { it.isNotBlank() } ?: delegate.advertisingId()
+}

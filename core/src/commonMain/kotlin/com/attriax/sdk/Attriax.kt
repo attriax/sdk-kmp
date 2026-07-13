@@ -54,6 +54,7 @@ import com.attriax.sdk.internal.installreferrer.AttriaxInstallReferrerCoordinato
 import com.attriax.sdk.internal.deeplink.AttriaxDeepLinkManager
 import com.attriax.sdk.internal.deeplink.AttriaxDeepLinkResolver
 import com.attriax.sdk.internal.deeplink.AttriaxUri
+import com.attriax.sdk.internal.skan.AttriaxSkanCvConfigDecoder
 import com.attriax.sdk.internal.skan.AttriaxSkanEngine
 import com.attriax.sdk.internal.asa.AttriaxAsaTokenManager
 import com.attriax.sdk.internal.referrer.AttriaxReferrerCoordinator
@@ -1177,6 +1178,26 @@ class Attriax internal constructor(
         lockWindow: Boolean,
     ): AttriaxSkanUpdateResult =
         skanEngine.updateConversionValue(fineValue, coarseValue, lockWindow)
+
+    /**
+     * Best-effort pull of the project's configured SKAN conversion-value rules
+     * (Epic 12.2). GETs `/api/sdk/v1/skan/conversion-config/<projectToken>` via the
+     * shared [transport] and decodes the api `SdkCvConfigResponse` into
+     * [AttriaxSkanConversionConfig]. Backs `skan.fetchConversionConfig`.
+     *
+     * Best-effort: a 404 (unknown token / no schema), any transport failure, or a
+     * malformed payload returns null rather than throwing — the config pull must never
+     * break the host. Performs blocking network I/O — call off the main thread.
+     */
+    internal fun fetchSkanConversionConfig(): AttriaxSkanConversionConfig? = try {
+        val response = transport.get(
+            "${AttriaxEndpoints.SKAN_CV_CONFIG}/${config.normalizedProjectToken}",
+        )
+        response.body?.let { AttriaxSkanCvConfigDecoder.decode(Json.decode(it)) }
+    } catch (e: Exception) {
+        // Unknown token (404), offline, or malformed payload — degrade to null.
+        null
+    }
 
     // -------- Apple Search Ads (AdServices) token capture --------
 

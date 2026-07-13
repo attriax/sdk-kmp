@@ -22,6 +22,12 @@ object AttriaxEndpoints {
 
     /** Apple Search Ads (AdServices) token capture — FROZEN CONTRACT. */
     const val ASA_TOKEN = "/api/sdk/v1/asa/token"
+
+    /**
+     * SKAN conversion-value config pull (GET). The project token is a PATH param, so
+     * callers append it: `"$SKAN_CV_CONFIG/<projectToken>"`.
+     */
+    const val SKAN_CV_CONFIG = "/api/sdk/v1/skan/conversion-config"
 }
 
 /**

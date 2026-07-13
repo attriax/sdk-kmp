@@ -75,17 +75,23 @@ class AttriaxAppleUrlSessionHttpClient(
         NSURLSession.sessionWithConfiguration(configuration)
     }
 
-    override fun post(path: String, body: String): HttpResponse {
+    override fun post(path: String, body: String): HttpResponse =
+        send(path, method = "POST", body = body)
+
+    override fun get(path: String): HttpResponse =
+        send(path, method = "GET", body = null)
+
+    private fun send(path: String, method: String, body: String?): HttpResponse {
         val url = NSURL.URLWithString(joinUrl(baseUrl, path))
             ?: throw AttriaxTransportException(message = "invalid URL")
 
         val request = NSMutableURLRequest(uRL = url)
-        request.setHTTPMethod("POST")
+        request.setHTTPMethod(method)
         // Belt-and-braces over the session default so the load-bearing UA is present.
         request.setValue(userAgent, forHTTPHeaderField = "User-Agent")
         request.setValue("application/json", forHTTPHeaderField = "Content-Type")
         request.setCachePolicy(NSURLRequestReloadIgnoringLocalCacheData)
-        request.setHTTPBody(body.toNSData())
+        if (body != null) request.setHTTPBody(body.toNSData())
 
         val semaphore = dispatch_semaphore_create(0)
         var resultData: NSData? = null

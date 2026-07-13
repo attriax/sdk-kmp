@@ -53,7 +53,20 @@ class AttriaxOkHttpClient(
             .header("Content-Type", "application/json")
             .post(body.toRequestBody(jsonMediaType))
             .build()
+        return execute(request)
+    }
 
+    override fun get(path: String): HttpResponse {
+        val request = Request.Builder()
+            .url(joinUrl(baseUrl, path))
+            .header("User-Agent", userAgent)
+            .header("Content-Type", "application/json")
+            .get()
+            .build()
+        return execute(request)
+    }
+
+    private fun execute(request: Request): HttpResponse {
         val response = try {
             client.newCall(request).execute()
         } catch (e: SocketTimeoutException) {
