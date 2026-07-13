@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Shared Android manifest surface for the Attriax KMP core AAR (com.attriax:core).
+    Every Android consumer (the pure sdk-android wrapper, the Flutter android plugin,
+    and the Unity androidlib) inherits these permissions through Gradle manifest
+    merging, so the runtime capabilities that live in this core's androidMain adapters
+    (OkHttp transport, Play install-referrer client, dependency-free advertising-id
+    lookup) are backed by the right permissions without each wrapper redeclaring them.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Required by the Google Play Install Referrer client. -->
+    <uses-permission android:name="com.android.vending.INSTALL_REFERRER" />
+    <!--
+        AD_ID is a normal-protection permission introduced in Android 13.
+        It is granted at install time and is required for the SDK's
+        dependency-free GAID lookup to return a real advertising id on
+        Android 13+. Apps built against API 32 or below do not need this
+        permission.
+    -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+
+</manifest>
