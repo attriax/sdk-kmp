@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "attriax-kmp"
 include(":core")
+include(":example-desktop-jvm")
