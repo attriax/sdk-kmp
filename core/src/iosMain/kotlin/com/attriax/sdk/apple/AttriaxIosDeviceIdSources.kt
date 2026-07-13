@@ -4,8 +4,7 @@ import com.attriax.sdk.internal.DeviceIdSources
 import platform.UIKit.UIDevice
 
 /**
- * [DeviceIdSources] backed by the iOS platform (PARITY §2, row D4) — the port of the
- * standalone iOS SDK's `AttriaxIOSDeviceIdSources`.
+ * [DeviceIdSources] backed by the iOS platform.
  *
  *  - [iosIdfv] reads `UIDevice.identifierForVendor` (IDFV) → resolver source
  *    `ios_idfv`.

@@ -451,7 +451,7 @@ private fun route(handle: AttriaxNativeHandle, method: String, args: Map<String,
             okEnvelope(result.wireValue)
         }
 
-        // -------- CCPA (Epic 10.1) --------
+        // -------- CCPA --------
         "getDoNotSell" -> okEnvelope(engine.consent.ccpa.doNotSell)
         "setDoNotSell" -> {
             engine.consent.ccpa.setDoNotSell(args.boolOrNull("doNotSell"))

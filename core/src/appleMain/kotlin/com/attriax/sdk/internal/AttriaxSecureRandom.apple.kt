@@ -11,8 +11,8 @@ import platform.Security.errSecSuccess
 /**
  * Apple actual for the secure-random seam backing [AttriaxIdGenerator].
  *
- * Uses the OS CSPRNG `SecRandomCopyBytes` (Security.framework) — the same source the
- * standalone iOS SDK's id generator uses — so the 128-bit device/session ids are
+ * Uses the OS CSPRNG `SecRandomCopyBytes` (Security.framework) so the 128-bit
+ * device/session ids are
  * cryptographically random on iOS/macOS rather than the desktop stopgap
  * `Random.Default`. On the (practically never) chance the syscall reports failure,
  * fall back to the stdlib RNG so id generation never throws and init is never broken

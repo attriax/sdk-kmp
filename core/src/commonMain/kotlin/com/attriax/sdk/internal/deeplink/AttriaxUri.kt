@@ -1,7 +1,7 @@
 package com.attriax.sdk.internal.deeplink
 
 /**
- * A tiny, framework-free URI value used by the deep-link core (PARITY §6).
+ * A tiny, framework-free URI value used by the deep-link core.
  *
  * Rationale: the deep-link normalization/metadata logic (linkPath stripping,
  * query-parameter extraction, Attriax-domain detection) must be pure so it is

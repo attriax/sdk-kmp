@@ -3,8 +3,7 @@ package com.attriax.sdk.apple
 import platform.AdSupport.ASIdentifierManager
 
 /**
- * The ATT-authorized IDFA supplier (PARITY §2 IDFA rung) — the port of the standalone
- * iOS SDK's `AttriaxAttGatedAdvertisingIdSupplier`.
+ * The ATT-authorized IDFA supplier (IDFA rung).
  *
  * Returns the IDFA (`ASIdentifierManager.advertisingIdentifier`) ONLY when
  * [attAuthorized] is true: Apple ZEROES the IDFA

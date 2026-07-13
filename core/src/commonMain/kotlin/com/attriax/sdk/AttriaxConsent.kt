@@ -4,7 +4,7 @@ import com.attriax.sdk.internal.consent.AttriaxGdprConsentState
 import com.attriax.sdk.internal.consent.AttriaxGdprConsentValues
 
 /**
- * Regulation-scoped consent surface exposed as `attriax.consent` (PARITY §5).
+ * Regulation-scoped consent surface exposed as `attriax.consent`.
  * Hosts the GDPR helpers under [gdpr] and the Apple ATT helpers under [att]. SKAN is
  * a separate Apple surface exposed as `attriax.skan` (see [AttriaxSkan]), not here.
  */
@@ -20,7 +20,7 @@ class AttriaxConsent internal constructor(engine: Attriax) {
 }
 
 /**
- * CCPA "do not sell / share" actions (Epic 10.1, PARITY §5 — the `consent.ccpa`
+ * CCPA "do not sell / share" actions (the `consent.ccpa`
  * sub-surface, mirroring [AttriaxAttConsent]).
  *
  * The election is LATCHING server-side; the SDK only reports the current value.
@@ -70,14 +70,14 @@ class AttriaxCcpaConsent internal constructor(private val engine: Attriax) {
 }
 
 /**
- * Apple App Tracking Transparency actions (PARITY §5 — Flutter reference
+ * Apple App Tracking Transparency actions (Flutter reference
  * `AttriaxAttConsent`, `attriax_consent.dart:69-80`).
  *
  * ATT is an Apple-only framework, so on every currently-built target
  * (android/jvm/native) [status] reports the wrapper-supplied value if one was set
  * (via [AttriaxConfig.attStatus] or [setStatus]), otherwise
  * [AttriaxAttStatus.UNKNOWN] from the platform seam; [requestAuthorization] is a
- * no-op returning UNKNOWN. The future iosMain actual (deferred to Mac) wires both
+ * no-op returning UNKNOWN. The future iosMain actual wires both
  * to `ATTrackingManager`.
  */
 class AttriaxAttConsent internal constructor(private val engine: Attriax) {
@@ -109,7 +109,7 @@ class AttriaxAttConsent internal constructor(private val engine: Attriax) {
 }
 
 /**
- * GDPR consent state and actions for the current device (PARITY §5, rows C1–C5).
+ * GDPR consent state and actions for the current device.
  * Mirrors the Flutter reference `AttriaxGdprConsent` (`attriax_consent.dart:87`).
  *
  * Until consent is granted or marked not required, identified tracking is held

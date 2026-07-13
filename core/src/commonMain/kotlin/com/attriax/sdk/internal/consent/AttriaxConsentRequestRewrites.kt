@@ -3,8 +3,8 @@ package com.attriax.sdk.internal.consent
 import com.attriax.sdk.internal.request.AttriaxApiRequest
 
 /**
- * Pure body-map rewrites applied to queued requests when consent resolves
- * (PARITY §5, row C5). Mirrors the Flutter reference `consent_request_rewrites.dart`
+ * Pure body-map rewrites applied to queued requests when consent resolves.
+ * Mirrors the Flutter reference `consent_request_rewrites.dart`
  * (`attriaxAnonymizeRequestForConsent` / `attriaxIdentifyRequestForConsentNotRequired`).
  *
  * The engine models a request as a `kind` + JSON body map, so identity handling

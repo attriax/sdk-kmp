@@ -43,14 +43,33 @@ import kotlin.concurrent.Volatile
 import kotlinx.atomicfu.atomic
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
+import com.attriax.sdk.internal.json.Json
+import com.attriax.sdk.internal.HttpResponse
+import com.attriax.sdk.internal.AttriaxIdGenerator
+import com.attriax.sdk.internal.AttriaxRevenue
+import com.attriax.sdk.internal.AttriaxScheduler
+import com.attriax.sdk.internal.AttriaxLifecycleBinder
+import com.attriax.sdk.internal.installreferrer.AttriaxInstallReferrerProvider
+import com.attriax.sdk.internal.installreferrer.AttriaxInstallReferrerCoordinator
+import com.attriax.sdk.internal.deeplink.AttriaxDeepLinkManager
+import com.attriax.sdk.internal.deeplink.AttriaxDeepLinkResolver
+import com.attriax.sdk.internal.deeplink.AttriaxUri
+import com.attriax.sdk.internal.skan.AttriaxSkanEngine
+import com.attriax.sdk.internal.asa.AttriaxAsaTokenManager
+import com.attriax.sdk.internal.referrer.AttriaxReferrerCoordinator
+import com.attriax.sdk.internal.attriaxAttStatus
+import com.attriax.sdk.internal.attriaxRequestAttAuthorization
+import com.attriax.sdk.internal.attriaxSkanSupported
+import com.attriax.sdk.internal.attriaxUpdatePostbackConversionValue
+import com.attriax.sdk.internal.attriaxFetchAsaAttributionToken
 
 /**
- * Attriax SDK core engine (Epic 9.2 slice 1).
+ * Attriax SDK core engine.
  *
  * This is the composition root that wires the pure engine
  * (config, device identity, queue, retry, batching, dispatcher) to its platform
- * I/O ports. It implements the init → app-open bootstrap (rows I1/O1/O3) and
- * the frozen build-time identity stamping (row D3).
+ * I/O ports. It implements the init → app-open bootstrap and
+ * the frozen build-time identity stamping.
  *
  * Later slices layer tracking richness, consent, deep links, session lifecycle
  * timers, and attestation on top of this engine; those surfaces are intentionally
@@ -65,41 +84,41 @@ class Attriax internal constructor(
     private val deviceIdentityStore: AttriaxDeviceIdentityStore,
     private val clock: AttriaxClock = AttriaxClock.SYSTEM,
     /**
-     * Heartbeat-timer scheduler (PARITY §3, row S3). Defaults to a no-op scheduler
+     * Heartbeat-timer scheduler. Defaults to a no-op scheduler
      * so the pure engine + JVM tests never spin up a real timer; the android factory
      * supplies [com.attriax.sdk.android.AttriaxExecutorScheduler].
      */
-    private val scheduler: com.attriax.sdk.internal.AttriaxScheduler =
+    private val scheduler: AttriaxScheduler =
         NOOP_SCHEDULER,
     /**
-     * Foreground/background binder (PARITY §3, row S3). Defaults to no-op; the
+     * Foreground/background binder. Defaults to no-op; the
      * android factory supplies the ProcessLifecycleOwner-backed binder. A lambda is
      * used to defer construction until [sessionLifecycleManager] exists.
      */
     private val lifecycleBinderFactory:
-        (AttriaxSessionLifecycleManager) -> com.attriax.sdk.internal.AttriaxLifecycleBinder =
-        { com.attriax.sdk.internal.AttriaxLifecycleBinder.Noop },
+        (AttriaxSessionLifecycleManager) -> AttriaxLifecycleBinder =
+        { AttriaxLifecycleBinder.Noop },
     /**
-     * Google Play install-referrer seam (PARITY §3 — app-open enrichment). Defaults
+     * Google Play install-referrer seam (app-open enrichment). Defaults
      * to [AttriaxInstallReferrerProvider.Unavailable] so the pure engine + JVM tests
      * never touch the Play client; the android factory supplies
      * [com.attriax.sdk.android.AttriaxPlayInstallReferrerProvider].
      */
     private val installReferrerProvider:
-        com.attriax.sdk.internal.installreferrer.AttriaxInstallReferrerProvider =
-        com.attriax.sdk.internal.installreferrer.AttriaxInstallReferrerProvider.Unavailable,
+        AttriaxInstallReferrerProvider =
+        AttriaxInstallReferrerProvider.Unavailable,
     /**
-     * Background flush executor (PARITY §7). Injected so the pure engine + tests can
+     * Background flush executor. Injected so the pure engine + tests can
      * substitute a synchronous fake; production wraps a daemon single-thread executor.
      */
     private val flushExecutor: AttriaxBackgroundExecutor = attriaxBackgroundExecutor("attriax-flush"),
     /**
-     * Dedicated single-thread executor for background consent sync (PARITY §5). Also
+     * Dedicated single-thread executor for background consent sync. Also
      * passed as the consent manager's `syncExecutor`. Injected for deterministic tests.
      */
     private val consentExecutor: AttriaxBackgroundExecutor = attriaxBackgroundExecutor("attriax-consent"),
     /**
-     * OS uncaught-exception handler seam (PARITY §4). Injected with the platform
+     * OS uncaught-exception handler seam. Injected with the platform
      * default so the pure engine + tests can substitute a fake that captures the
      * `onFatalCrash` callback and drives it directly (never crashing the test VM).
      * On native this default is a compile-only placeholder that installs nothing.
@@ -108,39 +127,39 @@ class Attriax internal constructor(
         (onFatalCrash: (Throwable) -> Unit) -> AttriaxUncaughtHandlerRegistration =
         ::attriaxInstallUncaughtExceptionHandler,
     /**
-     * Browser-open seam for deep-link browser-fallback URLs (PARITY §6). Defaults to
+     * Browser-open seam for deep-link browser-fallback URLs. Defaults to
      * [AttriaxBrowserOpener.Unavailable] (no-op) so the pure engine + jvm/native never
      * open anything; the android factory injects an ACTION_VIEW-backed opener. Gated
      * by [AttriaxConfig.automaticBrowserHandling] before it is ever called.
      */
     private val browserOpener: AttriaxBrowserOpener = AttriaxBrowserOpener.Unavailable,
     /**
-     * Apple ATT status seam (PARITY §5). Reads the current tracking-authorization
+     * Apple ATT status seam. Reads the current tracking-authorization
      * status WITHOUT prompting. Defaults to the platform `attriaxAttStatus` expect
      * fun (UNKNOWN on every currently-built target; the future iosMain actual reads
      * `ATTrackingManager`). Injected so commonTest can substitute a fake. Only
      * consulted when no wrapper-supplied status is present.
      */
     private val attStatusProvider: () -> AttriaxAttStatus =
-        { com.attriax.sdk.internal.attriaxAttStatus() },
+        { attriaxAttStatus() },
     /**
-     * Apple ATT authorization-request seam (PARITY §5). Prompts for authorization
+     * Apple ATT authorization-request seam. Prompts for authorization
      * (Apple) and returns the resulting status; blocking with an optional timeout.
      * Defaults to the platform `attriaxRequestAttAuthorization` expect fun (a no-op
      * returning UNKNOWN off-iOS). Injected so commonTest can assert init invokes it
      * when [AttriaxConfig.requestTrackingAuthorizationOnInit] is `true`.
      */
     private val requestAttAuthorizationSeam: (Long?) -> AttriaxAttStatus =
-        { timeoutMs -> com.attriax.sdk.internal.attriaxRequestAttAuthorization(timeoutMs) },
+        { timeoutMs -> attriaxRequestAttAuthorization(timeoutMs) },
     /**
-     * SKAdNetwork support probe seam (Epic 8.5). Defaults to the platform
+     * SKAdNetwork support probe seam. Defaults to the platform
      * `attriaxSkanSupported` expect fun (`false` on every currently-built target; the
      * future iosMain actual returns `true`). Injected so commonTest can simulate iOS.
      */
     private val skanSupportedSeam: () -> Boolean =
-        { com.attriax.sdk.internal.attriaxSkanSupported() },
+        { attriaxSkanSupported() },
     /**
-     * On-device SKAN conversion-value update seam (Epic 8.5). Defaults to the platform
+     * On-device SKAN conversion-value update seam. Defaults to the platform
      * `attriaxUpdatePostbackConversionValue` expect fun (NOT_SUPPORTED off-iOS; the
      * future iosMain actual calls StoreKit `updatePostbackConversionValue`). Injected
      * so commonTest can assert the facade reaches it with the resolved fine/coarse/lock.
@@ -151,26 +170,26 @@ class Attriax internal constructor(
         lockWindow: Boolean,
     ) -> AttriaxSkanUpdateResult =
         { fineValue, coarseValue, lockWindow ->
-            com.attriax.sdk.internal.attriaxUpdatePostbackConversionValue(fineValue, coarseValue, lockWindow)
+            attriaxUpdatePostbackConversionValue(fineValue, coarseValue, lockWindow)
         },
     /**
-     * Apple Search Ads (AdServices) attribution-token fetch seam (Epic 8.5). Defaults
+     * Apple Search Ads (AdServices) attribution-token fetch seam. Defaults
      * to the platform `attriaxFetchAsaAttributionToken` expect fun (`null` off-iOS; the
      * future iosMain actual calls `AAAttribution.attributionToken`). Injected so
      * commonTest can drive the auto-capture path with a fake token.
      */
     private val asaTokenFetchSeam: () -> String? =
-        { com.attriax.sdk.internal.attriaxFetchAsaAttributionToken() },
+        { attriaxFetchAsaAttributionToken() },
 ) {
     /**
-     * Leveled logger (PARITY — Flutter reference `AttriaxLogger`). Constructed once
+     * Leveled logger (Flutter reference `AttriaxLogger`). Constructed once
      * from [AttriaxConfig.enableDebugLogs] and shared with the public surfaces (the
      * tracking surface logs invalid-currency warnings through it).
      */
     internal val logger = AttriaxLogger(config.enableDebugLogs)
 
     /**
-     * Runtime synchronization state (PARITY — Flutter reference `AttriaxSynchronizer`).
+     * Runtime synchronization state (Flutter reference `AttriaxSynchronizer`).
      * The engine drives it from the real dispatch lifecycle below (flush entry/exit,
      * terminal drops, consent-defer gate, enabled/reset). Exposed via [synchronization].
      */
@@ -197,14 +216,14 @@ class Attriax internal constructor(
         onDropped = { _, _ -> terminalDropDuringFlush.value = true },
     )
 
-    // -------- session lifecycle (PARITY §3, rows S2–S5) --------
+    // -------- session lifecycle --------
 
     private val sessionManager = AttriaxSessionManager(
         clock = clock,
         snapshotStore = AttriaxSessionSnapshotStore(store),
         heartbeatIntervalMs = config.sessionHeartbeatIntervalMs,
         firstLaunchHeartbeatIntervalMs = config.firstLaunchSessionHeartbeatIntervalMs,
-        generateSessionId = { com.attriax.sdk.internal.AttriaxIdGenerator.generate() },
+        generateSessionId = { AttriaxIdGenerator.generate() },
     )
 
     private val sessionLifecycleManager = AttriaxSessionLifecycleManager(
@@ -220,7 +239,7 @@ class Attriax internal constructor(
     private val lifecycleBinder = lifecycleBinderFactory(sessionLifecycleManager)
 
     /**
-     * Device-attestation orchestrator (PARITY §9, rows AT1/AT2). Inert unless
+     * Device-attestation orchestrator. Inert unless
      * [AttriaxConfig.attestationEnabled] is `true`; a `null` provider degrades to
      * the noop. Pure over a challenge-fetch seam and the public provider interface
      * so it is JVM-tested with fakes; the real Play Integrity call lives behind the
@@ -233,13 +252,13 @@ class Attriax internal constructor(
     )
 
     /**
-     * Install-referrer capture policy (PARITY §3). Cache-first + fetch-once-with-
+     * Install-referrer capture policy. Cache-first + fetch-once-with-
      * one-retry over the [installReferrerProvider] seam; pure and JVM-tested. Inert
      * when the provider is [AttriaxInstallReferrerProvider.Unavailable] or capture
      * is disabled in config.
      */
     private val installReferrer =
-        com.attriax.sdk.internal.installreferrer.AttriaxInstallReferrerCoordinator(
+        AttriaxInstallReferrerCoordinator(
             provider = installReferrerProvider,
             store = store,
             enabled = config.installReferrerEnabled,
@@ -261,7 +280,7 @@ class Attriax internal constructor(
     )
 
     /**
-     * Automatic crash reporting (PARITY §4). Reuses the engine's crash builder so the
+     * Automatic crash reporting. Reuses the engine's crash builder so the
      * replayed/reported crash is the SAME wire shape as the manual [recordError]. The
      * DEAD [AttriaxConfig.automaticCrashReportingEnabled] flag (default `true`, matching
      * Flutter) is wired here: when off, no handler installs and no replay runs.
@@ -285,24 +304,24 @@ class Attriax internal constructor(
     )
 
     /**
-     * SKAdNetwork conversion-value engine (Epic 8.5). Pure over the support + on-device
+     * SKAdNetwork conversion-value engine. Pure over the support + on-device
      * update seams; StoreKit passthrough (no local rules engine — see [AttriaxSkan]).
      * Config `enabled` gates updates; off-iOS the seams report unsupported.
      */
-    private val skanEngine = com.attriax.sdk.internal.skan.AttriaxSkanEngine(
+    private val skanEngine = AttriaxSkanEngine(
         config = config.skan ?: AttriaxSkanConfig(),
         supported = skanSupportedSeam,
         performUpdate = updatePostbackConversionValueSeam,
     )
 
     /**
-     * Apple Search Ads (AdServices) token capture (Epic 8.5). Best-effort + fully
+     * Apple Search Ads (AdServices) token capture. Best-effort + fully
      * fault-isolated (mirrors the Flutter reference): the auto path fetches the token
      * via the platform seam (null off-iOS → no submission) and POSTs `{projectToken,
      * token}`; the wrapper-supply [submitAsaToken] POSTs an explicitly supplied token
      * on any platform. A send failure never affects init or session.
      */
-    private val asaTokenManager = com.attriax.sdk.internal.asa.AttriaxAsaTokenManager(
+    private val asaTokenManager = AttriaxAsaTokenManager(
         enabled = config.asaTokenCaptureEnabled,
         acquireToken = asaTokenFetchSeam,
         sendToken = { token -> postAsaToken(token) },
@@ -320,7 +339,7 @@ class Attriax internal constructor(
     @Volatile private var firstLaunch: Boolean = true
 
     /**
-     * Wrapper-supplied Apple ATT status (PARITY §5). Seeded from
+     * Wrapper-supplied Apple ATT status. Seeded from
      * [AttriaxConfig.attStatus]; updated by [setAttStatus] (or a latched
      * [requestAttAuthorization] result). When non-null it WINS over the platform
      * seam. See [attStatus] / [resolveAttStatusWire].
@@ -328,7 +347,7 @@ class Attriax internal constructor(
     @Volatile private var wrapperAttStatus: AttriaxAttStatus? = config.attStatus
 
     /**
-     * Wrapper-supplied CCPA do-not-sell election (Epic 10.1, PARITY §5). Seeded from
+     * Wrapper-supplied CCPA do-not-sell election. Seeded from
      * [AttriaxConfig.doNotSell]; updated by [setCcpaDoNotSell]. `null` → OMITTED; an
      * explicit `true`/`false` is EMITTED TOP-LEVEL as `doNotSell`. In-memory only,
      * matching [wrapperAttStatus]. See [ccpaDoNotSell] / [resolveDoNotSellWire].
@@ -336,7 +355,7 @@ class Attriax internal constructor(
     @Volatile private var wrapperDoNotSell: Boolean? = config.doNotSell
 
     /**
-     * Wrapper-supplied raw IAB US-Privacy string (Epic 10.1, PARITY §5). Seeded from
+     * Wrapper-supplied raw IAB US-Privacy string. Seeded from
      * [AttriaxConfig.usPrivacy]; updated by [setCcpaUsPrivacy]. `null`/blank → OMITTED;
      * a non-blank value is EMITTED TOP-LEVEL as `usPrivacy` (capped at 16 chars). See
      * [ccpaUsPrivacy] / [resolveUsPrivacyWire].
@@ -345,27 +364,27 @@ class Attriax internal constructor(
 
     private val connectivityListener = ConnectivityMonitor.Listener { scheduleFlush() }
 
-    /** Public tracking / revenue / identify surface (PARITY §4). */
+    /** Public tracking / revenue / identify surface. */
     val tracking: AttriaxTracking by lazy { AttriaxTracking(this) }
 
-    /** Public GDPR consent + anonymous-mode surface (PARITY §5). */
+    /** Public GDPR consent + anonymous-mode surface. */
     val consent: AttriaxConsent by lazy { AttriaxConsent(this) }
 
-    /** Public deep-link surface (PARITY §6). */
+    /** Public deep-link surface. */
     val deepLinks: AttriaxDeepLinks by lazy { AttriaxDeepLinks(this) }
 
-    /** Public synchronization-state surface (PARITY — observability). */
+    /** Public synchronization-state surface (observability). */
     val synchronization: AttriaxSynchronization by lazy { AttriaxSynchronization(this) }
 
-    /** Public referrer-query surface (PARITY — referrer query API). */
+    /** Public referrer-query surface. */
     val referrer: AttriaxReferrer by lazy { AttriaxReferrer(this) }
 
-    /** Public SKAdNetwork surface (Epic 8.5). Apple-only; no-op off-iOS. */
+    /** Public SKAdNetwork surface. Apple-only; no-op off-iOS. */
     val skan: AttriaxSkan by lazy { AttriaxSkan(this) }
 
     /**
-     * Pending resolve-response callbacks keyed by queued-request id (PARITY §6, row
-     * DL2). Registered before enqueue; fired from [onRequestDelivered] with the
+     * Pending resolve-response callbacks keyed by queued-request id. Registered
+     * before enqueue; fired from [onRequestDelivered] with the
      * decoded response `data` map when the resolve is delivered. Guarded by
      * [pendingResolveLock] (replaces the JVM ConcurrentHashMap).
      */
@@ -373,7 +392,7 @@ class Attriax internal constructor(
     private val pendingResolveCallbacks = mutableMapOf<String, (Map<String, Any?>?) -> Unit>()
 
     /**
-     * Coalesced periodic-flush timer (PARITY §7 — Flutter synchronizer
+     * Coalesced periodic-flush timer (Flutter synchronizer
      * `_deferredFlushTimer`/`_scheduleDeferredFlush`). A single one-shot handle armed
      * when a NON-immediate request is enqueued (and not deferred by consent); it
      * drains the queue one `config.eventFlushIntervalMs` later. Never stacks — a
@@ -381,10 +400,10 @@ class Attriax internal constructor(
      * cancels it. Guarded by [deferredFlushLock].
      */
     private val deferredFlushLock = SynchronizedObject()
-    @Volatile private var deferredFlushHandle: com.attriax.sdk.internal.AttriaxScheduler.ScheduledHandle? = null
+    @Volatile private var deferredFlushHandle: AttriaxScheduler.ScheduledHandle? = null
 
     /** Deep-link runtime coordinator (dedup / initial-link probe / deferred). */
-    private val deepLinkManager = com.attriax.sdk.internal.deeplink.AttriaxDeepLinkManager(
+    private val deepLinkManager = AttriaxDeepLinkManager(
         nowMs = { clock.nowMs() },
         resolveDispatch = { uri, metadata, source, isInitialLink, onResolved ->
             dispatchDeepLinkResolve(uri, metadata, source, isInitialLink, onResolved)
@@ -398,8 +417,8 @@ class Attriax internal constructor(
     )
 
     /**
-     * Open a resolution's browser-fallback [action] when auto-handling is on (PARITY
-     * §6 — Flutter `AttriaxDeepLinkBrowserHandler.handle`). Returns whether the SDK
+     * Open a resolution's browser-fallback [action] when auto-handling is on
+     * (Flutter `AttriaxDeepLinkBrowserHandler.handle`). Returns whether the SDK
      * opened it. Best-effort: a null action, the flag being off, or an opener failure
      * all yield `false` and never throw into the resolve callback.
      */
@@ -416,12 +435,12 @@ class Attriax internal constructor(
     }
 
     /**
-     * Backs the public `referrer` query surface (PARITY — referrer query API):
+     * Backs the public `referrer` query surface:
      * reads the persisted raw/attribution install referrers and tracks the session /
      * latest deep-link referrers via the deep-link observer stream. Attached in
      * [init] before the app-open fires so a deferred referrer is captured live.
      */
-    private val referrerCoordinator = com.attriax.sdk.internal.referrer.AttriaxReferrerCoordinator(
+    private val referrerCoordinator = AttriaxReferrerCoordinator(
         store = store,
         deepLinkManager = deepLinkManager,
     )
@@ -431,7 +450,7 @@ class Attriax internal constructor(
     val deviceId: String? get() = deviceIdentity?.value
 
     /**
-     * SDK version + metadata snapshot (PARITY — Flutter `Attriax.sdkSnapshot`,
+     * SDK version + metadata snapshot (Flutter `Attriax.sdkSnapshot`,
      * attriax.dart:141). Built from the injected context snapshot (sdk api/package
      * version) and [AttriaxConfig.sdkMetadata]. Always available (the context is
      * captured at construction), unlike Flutter's null-until-init getter.
@@ -447,14 +466,14 @@ class Attriax internal constructor(
         get() = enabledFlag.value
         set(value) {
             enabledFlag.value = value
-            // Reflect a disable immediately (PARITY — Flutter `deactivate` →
+            // Reflect a disable immediately (Flutter `deactivate` →
             // `disabled`); re-enable is resolved by the next flush.
             if (!value) syncState.set(AttriaxSynchronizationState.DISABLED)
         }
 
     /**
-     * GDPR-safe anonymous-tracking toggle (PARITY §4/§5). The consent-driven
-     * capture semantics land in slice 3; here it is a durable in-memory flag the
+     * GDPR-safe anonymous-tracking toggle. The consent-driven
+     * capture semantics are handled elsewhere; here it is a durable in-memory flag the
      * tracking surface reads. Defaults from [AttriaxConfig.anonymousTracking].
      */
     var anonymousTrackingEnabled: Boolean
@@ -472,7 +491,7 @@ class Attriax internal constructor(
     internal val isTrackingEnabled: Boolean get() = enabledFlag.value
     internal val projectTokenForTracking: String get() = config.normalizedProjectToken
 
-    // -------- synchronization state (PARITY — observability) — behind `synchronization` --------
+    // -------- synchronization state (observability) — behind `synchronization` --------
 
     internal val isSynchronized: Boolean get() = syncState.isSynchronized
     internal val synchronizationState: AttriaxSynchronizationState get() = syncState.state
@@ -497,7 +516,7 @@ class Attriax internal constructor(
         referrerCoordinator.sessionReferrer()
 
     /**
-     * Bootstrap the runtime (PARITY §1 init sequence):
+     * Bootstrap the runtime (init sequence):
      *  1. restore persisted state,
      *  2. generate-or-load device id + resolve source,
      *  3. context snapshot is already captured (injected),
@@ -510,17 +529,17 @@ class Attriax internal constructor(
         firstLaunch = store.getString(KEY_FIRST_LAUNCH) == null
         deviceIdentity = deviceIdentityStore.loadOrCreate()
         // Restore persisted consent BEFORE any capture gating runs, and reconcile
-        // the queue whenever the consent decision changes (PARITY §5, rows C2/C5).
+        // the queue whenever the consent decision changes.
         consentManager.restore()
         consentManager.onStateChanged = { onConsentStateChanged() }
         connectivity.register(connectivityListener)
 
         // Subscribe the referrer coordinator to the deep-link stream BEFORE the
         // app-open fires, so a deferred deep-link referrer recovered from the
-        // app-open response is captured as the session referrer (PARITY — referrer).
+        // app-open response is captured as the session referrer (referrer).
         referrerCoordinator.attach()
 
-        // Apple ATT (PARITY §5): when requested, resolve the tracking-authorization
+        // Apple ATT: when requested, resolve the tracking-authorization
         // status BEFORE the app-open builds so a resolved status rides the open. The
         // seam is a no-op returning UNKNOWN on every currently-built target (nothing
         // latched, so the open omits `attStatus`); the future iosMain actual prompts
@@ -533,13 +552,13 @@ class Attriax internal constructor(
 
         scheduleAppOpenIfNeeded()
 
-        // Apple Search Ads (AdServices) token capture (Epic 8.5) — iOS-only,
+        // Apple Search Ads (AdServices) token capture — iOS-only,
         // best-effort, fault-isolated. Off the init thread; the fetch seam returns null
         // off-iOS so this never submits anything on the currently-built targets. Gated
         // by config + attribution consent (mirrors the Flutter reference).
         scheduleAsaTokenCaptureIfNeeded()
 
-        // Session lifecycle (PARITY §3, rows S2–S5): restore/continue-or-start the
+        // Session lifecycle: restore/continue-or-start the
         // session snapshot, seed the initial START / recovered END telemetry, and
         // begin foreground/background detection + the heartbeat timer. Gated on
         // sessionTrackingEnabled; identity is frozen at build like every other signal.
@@ -548,7 +567,7 @@ class Attriax internal constructor(
         // Flush any consent decision persisted with pendingSync across a restart.
         consentManager.flushPendingSync()
 
-        // Automatic crash reporting (PARITY §4): replay a crash a prior fatal handler
+        // Automatic crash reporting: replay a crash a prior fatal handler
         // persisted (enqueue + one-shot clear), then install the OS uncaught-exception
         // handler. Both are gated by automaticCrashReportingEnabled; the native handler
         // is a compile-only placeholder until the platform chunk.
@@ -561,10 +580,10 @@ class Attriax internal constructor(
     }
 
     /**
-     * Restore-or-start the session at init and wire lifecycle telemetry (PARITY §3).
+     * Restore-or-start the session at init and wire lifecycle telemetry.
      * A replaced session (continuation window exceeded on restore) is seeded as a
-     * recovered END (row S5); a freshly-started session seeds the initial START
-     * (row S3). Then the lifecycle manager is activated (emits the seeded START +
+     * recovered END; a freshly-started session seeds the initial START
+     * Then the lifecycle manager is activated (emits the seeded START +
      * starts the heartbeat) and foreground/background detection is bound.
      */
     private fun bootstrapSession() {
@@ -593,17 +612,17 @@ class Attriax internal constructor(
         )
     }
 
-    /** The current session snapshot (PARITY public surface), or null when none is active. */
+    /** The current session snapshot (public surface), or null when none is active. */
     val currentSession: AttriaxSessionSnapshot? get() = sessionManager.currentSession
 
     /**
      * Enqueue an event (thin engine-level entry; the richer public tracking API
-     * lives on [tracking]). Throws if called before [init] (row I1).
+     * lives on [tracking]). Throws if called before [init].
      */
     fun recordEvent(name: String, eventData: Map<String, Any?>? = null, flushImmediately: Boolean = false) {
         requireInitialized()
         val identity = deviceIdentity
-        // Stamp the current session (PARITY §3): events carry the live session id +
+        // Stamp the current session: events carry the live session id +
         // ms-since-start so the backend correlates them, and so the dispatcher can
         // inject a session keep-alive when a batch carries a live-session event (S4).
         val session = sessionManager.currentSession
@@ -622,7 +641,7 @@ class Attriax internal constructor(
     }
 
     /**
-     * First-launch eager-flush decision (PARITY §7 — Flutter tracking-manager
+     * First-launch eager-flush decision (Flutter tracking-manager
      * `_shouldFlushEventImmediately`, attriax_tracking_manager.dart:365-376). An
      * explicit `flushImmediately` always wins; otherwise, on the FIRST launch and
      * when [AttriaxConfig.flushEventsImmediatelyOnFirstLaunch] is set, the event is
@@ -638,7 +657,7 @@ class Attriax internal constructor(
     /**
      * Build the session request for a lifecycle [event] and push it through the
      * SAME consent-gated queue path as every other signal (session is an
-     * anon-capable signal — row C4). Identity is stamped from the frozen build-time
+     * anon-capable signal). Identity is stamped from the frozen build-time
      * device id; the full SdkSessionDto context comes from the snapshot.
      */
     private fun enqueueSessionLifecycle(event: AttriaxSessionLifecycleEvent) {
@@ -671,7 +690,7 @@ class Attriax internal constructor(
     }
 
     /**
-     * Session keep-alive injection hook for the dispatcher (PARITY §4, row S4).
+     * Session keep-alive injection hook for the dispatcher.
      * When a batch [group] carries an EVENT tagged with the live session's id,
      * returns a synthetic HEARTBEAT session request (sharing the batch identity) to
      * append; otherwise null. Mirrors Flutter `_buildSessionKeepAliveBatchRequest`.
@@ -699,7 +718,7 @@ class Attriax internal constructor(
     }
 
     /**
-     * Consent-aware enqueue gate (PARITY §5, row C4). Replaces the old
+     * Consent-aware enqueue gate. Replaces the old
      * `enabled`-only gate: every tracking request is now filtered through the
      * consent policy BEFORE it is persisted.
      *
@@ -730,11 +749,11 @@ class Attriax internal constructor(
             enqueue(toEnqueue)
             // Buffer locally (no flush) when network dispatch must be deferred by
             // consent; otherwise flush now (immediate) or arm the coalesced periodic
-            // flush (non-immediate → drains after eventFlushIntervalMs). PARITY §7.
+            // flush (non-immediate → drains after eventFlushIntervalMs).
             if (!decision.deferNetwork) {
                 scheduleFlushOrDefer(flushImmediately)
             } else {
-                // Consent defers network dispatch (PARITY — deferred synchronization).
+                // Consent defers network dispatch (deferred synchronization).
                 syncState.set(AttriaxSynchronizationState.DEFERRED)
             }
             return true
@@ -756,18 +775,18 @@ class Attriax internal constructor(
 
     /**
      * Enqueue a pre-built request through the frozen-identity queue path and
-     * optionally kick a flush (PARITY §4/§7). Shared by the [tracking] surface so
+     * optionally kick a flush. Shared by the [tracking] surface so
      * events/crashes/notifications/user updates all traverse the same engine.
      */
     internal fun enqueueRequest(
-        request: com.attriax.sdk.internal.request.AttriaxApiRequest,
+        request: AttriaxApiRequest,
         flushImmediately: Boolean,
     ) {
         requireInitialized()
         enqueueTracked(request, flushImmediately)
     }
 
-    // -------- crash / error reporting (PARITY §4) — behind `tracking.recordError` + auto handler --------
+    // -------- crash / error reporting — behind `tracking.recordError` + auto handler --------
 
     /**
      * Build the crash/error request (POST `/api/sdk/v1/crashes`) shared by the manual
@@ -788,21 +807,21 @@ class Attriax internal constructor(
         context = context,
         deviceId = deviceIdentity?.value,
         deviceIdSource = deviceIdentity?.source,
-        source = com.attriax.sdk.internal.AttriaxRevenue.trimOrNull(source) ?: "manual",
+        source = AttriaxRevenue.trimOrNull(source) ?: "manual",
         isFatal = fatal,
         exceptionType = attriaxExceptionName(error),
         message = error.message ?: error.toString(),
         stackTrace = stackTrace ?: error.stackTraceToString(),
         isFirstLaunch = firstLaunch,
         clientOccurredAtIso = nowIso(),
-        reason = com.attriax.sdk.internal.AttriaxRevenue.trimOrNull(reason),
+        reason = AttriaxRevenue.trimOrNull(reason),
         sessionId = null,
         sessionRelativeTimeMs = null,
         metadata = metadata,
     )
 
     /**
-     * Record an error/crash (PARITY §4 — Flutter `AttriaxTracking.recordError`).
+     * Record an error/crash (Flutter `AttriaxTracking.recordError`).
      * `fatal = false` is a normal non-fatal enqueue (the existing behavior);
      * `fatal = true` PERSISTS the crash to durable storage ONLY (no immediate enqueue) —
      * it is delivered exclusively via replay on the next init, giving exactly-once
@@ -828,7 +847,7 @@ class Attriax internal constructor(
     }
 
     /**
-     * Direct (non-queued) receipt validation (PARITY §4). Works even when tracking
+     * Direct (non-queued) receipt validation. Works even when tracking
      * is disabled / consent is unresolved because it bypasses the queue and the
      * enabled gate entirely — it is a synchronous request/response, not a fire-and-
      * forget signal. Returns the typed [AttriaxRevenueReceiptValidationResult] parsed
@@ -855,17 +874,17 @@ class Attriax internal constructor(
             receipt = normalizedReceipt,
             deviceId = deviceIdentity?.value,
             clientOccurredAtIso = nowIso(),
-            provider = com.attriax.sdk.internal.AttriaxRevenue.trimOrNull(provider),
-            environment = com.attriax.sdk.internal.AttriaxRevenue.trimOrNull(environment),
-            transactionId = com.attriax.sdk.internal.AttriaxRevenue.trimOrNull(transactionId),
-            productId = com.attriax.sdk.internal.AttriaxRevenue.trimOrNull(productId),
+            provider = AttriaxRevenue.trimOrNull(provider),
+            environment = AttriaxRevenue.trimOrNull(environment),
+            transactionId = AttriaxRevenue.trimOrNull(transactionId),
+            productId = AttriaxRevenue.trimOrNull(productId),
             test = test,
         )
         val response = transport.post(
-            com.attriax.sdk.internal.request.AttriaxEndpoints.RECEIPTS_VALIDATE,
-            com.attriax.sdk.internal.json.Json.encode(body),
+            AttriaxEndpoints.RECEIPTS_VALIDATE,
+            Json.encode(body),
         )
-        val decoded = response.body?.let { com.attriax.sdk.internal.json.Json.decode(it) }
+        val decoded = response.body?.let { Json.decode(it) }
         return AttriaxRevenueReceiptValidationResult.fromResponse(decoded)
     }
 
@@ -874,7 +893,7 @@ class Attriax internal constructor(
         scheduleFlush()
     }
 
-    // -------- deep links (PARITY §6, rows DL1–DL4) — engine methods behind `deepLinks` --------
+    // -------- deep links — engine methods behind `deepLinks` --------
 
     internal val latestDeepLink: AttriaxDeepLinkEvent? get() = deepLinkManager.latestDeepLink
     internal val initialDeepLink: AttriaxDeepLinkEvent? get() = deepLinkManager.initialDeepLink
@@ -916,7 +935,7 @@ class Attriax internal constructor(
     }
 
     /**
-     * Create a short dynamic link (PARITY §6). Sent DIRECTLY (non-queued) — it is a
+     * Create a short dynamic link. Sent DIRECTLY (non-queued) — it is a
      * synchronous request/response, so it works even while tracking is deferred.
      * Blocking I/O — call off the main thread.
      */
@@ -950,24 +969,24 @@ class Attriax internal constructor(
         )
         val response = transport.post(
             AttriaxEndpoints.DYNAMIC_LINKS,
-            com.attriax.sdk.internal.json.Json.encode(body),
+            Json.encode(body),
         )
         val decoded = response.body?.let {
-            com.attriax.sdk.internal.json.Json.decode(it)
+            Json.decode(it)
         } as? Map<*, *>
             ?: throw IllegalStateException("Attriax dynamic-link response was empty.")
         return parseDynamicLinkResult(decoded)
     }
 
     /**
-     * Dispatch a deep-link resolve (PARITY §6, row DL2). Builds the DTO with the
+     * Dispatch a deep-link resolve. Builds the DTO with the
      * consent-aware identity decision (deep-link diagnostics are anon-capable while
      * waiting), registers the resolution callback under the queued id, and enqueues
      * through the same consent gate + terminal-drop-exempt dispatcher as every other
      * request. When the resolve is delivered, [onRequestDelivered] fires the callback.
      */
     private fun dispatchDeepLinkResolve(
-        uri: com.attriax.sdk.internal.deeplink.AttriaxUri,
+        uri: AttriaxUri,
         metadata: Map<String, Any?>,
         source: String,
         isInitialLink: Boolean,
@@ -988,12 +1007,12 @@ class Attriax internal constructor(
             deviceId = if (attachIdentity) identity?.value else null,
             deviceIdSource = if (attachIdentity) identity?.source else null,
             rawUrl = uri.toString(),
-            linkPath = com.attriax.sdk.internal.deeplink.AttriaxDeepLinkResolver.extractLinkPathFromUri(uri),
+            linkPath = AttriaxDeepLinkResolver.extractLinkPathFromUri(uri),
             sessionId = null,
             sessionRelativeTimeMs = null,
             metadata = metadata,
         )
-        val id = com.attriax.sdk.internal.AttriaxIdGenerator.generate()
+        val id = AttriaxIdGenerator.generate()
         synchronized(pendingResolveLock) { pendingResolveCallbacks[id] = onResolved }
         queue.enqueue(
             AttriaxQueuedRequest(
@@ -1012,12 +1031,12 @@ class Attriax internal constructor(
 
     /**
      * Delivery callback from the dispatcher (single-send only). Routes app-open
-     * responses to deferred deep-link recovery (row DL3) and resolve responses to
-     * their pending resolution callback (row DL2). Best-effort — never crash a flush.
+     * responses to deferred deep-link recovery and resolve responses to
+     * their pending resolution callback. Best-effort — never crash a flush.
      */
     private fun onRequestDelivered(
         queued: AttriaxQueuedRequest,
-        response: com.attriax.sdk.internal.HttpResponse,
+        response: HttpResponse,
     ) {
         try {
             when (queued.request.kind) {
@@ -1025,7 +1044,7 @@ class Attriax internal constructor(
                     val data = decodeResponseObject(response)
                     deepLinkManager.handleDeferredAppOpen(data)
                     // Persist the attribution records the app-open response returned so
-                    // the referrer getters resolve real data (PARITY — referrer).
+                    // the referrer getters resolve real data (referrer).
                     referrerCoordinator.handleAppOpenResponse(data)
                 }
                 AttriaxApiRequest.KIND_RESOLVE_DEEP_LINK -> {
@@ -1042,11 +1061,11 @@ class Attriax internal constructor(
     }
 
     private fun decodeResponseObject(
-        response: com.attriax.sdk.internal.HttpResponse,
+        response: HttpResponse,
     ): Map<String, Any?>? {
         val body = response.body ?: return null
         @Suppress("UNCHECKED_CAST")
-        return com.attriax.sdk.internal.json.Json.decode(body) as? Map<String, Any?>
+        return Json.decode(body) as? Map<String, Any?>
     }
 
     private fun parseDynamicLinkResult(decoded: Map<*, *>): AttriaxCreateDynamicLinkResult {
@@ -1072,7 +1091,7 @@ class Attriax internal constructor(
     /** UTC ISO-8601 timestamp for the current clock reading (exposed to [tracking]). */
     internal fun nowIsoNow(): String = nowIso()
 
-    // -------- ATT (PARITY §5) — engine methods behind the `consent.att` surface --------
+    // -------- ATT — engine methods behind the `consent.att` surface --------
 
     /**
      * Resolved ATT status: the wrapper-supplied value if one is present, otherwise
@@ -1103,13 +1122,13 @@ class Attriax internal constructor(
     /**
      * The resolved ATT status as the wire string for the app-open, or `null` when it
      * should be OMITTED. UNKNOWN (non-Apple / unresolved) → omit; every real status
-     * → its 1:1 wire value (Epic 8.5; mirrors the Flutter omit rule where the
+     * → its 1:1 wire value (mirrors the Flutter omit rule where the
      * non-applicable cases attach nothing).
      */
     internal fun resolveAttStatusWire(): String? =
         attStatus.takeIf { it != AttriaxAttStatus.UNKNOWN }?.wireValue
 
-    // -------- CCPA (Epic 10.1) — engine methods behind the `consent.ccpa` surface --------
+    // -------- CCPA — engine methods behind the `consent.ccpa` surface --------
 
     /** Current CCPA do-not-sell election (wrapper-supplied or config seed). Backs `consent.ccpa.doNotSell`. */
     internal val ccpaDoNotSell: Boolean? get() = wrapperDoNotSell
@@ -1142,13 +1161,13 @@ class Attriax internal constructor(
      */
     internal fun resolveUsPrivacyWire(): String? = wrapperUsPrivacy
 
-    // -------- SKAdNetwork (Epic 8.5) — engine methods behind the `skan` surface --------
+    // -------- SKAdNetwork — engine methods behind the `skan` surface --------
 
     /** Locally tracked SKAN state (passthrough subset), or null off-iOS. Backs `skan.state`. */
     internal val skanState: AttriaxSkanState? get() = skanEngine.currentState
 
     /**
-     * Manual SKAN conversion-value update (Epic 8.5). Delegates to the pure engine,
+     * Manual SKAN conversion-value update. Delegates to the pure engine,
      * which validates + applies the monotonic rules and pushes an advancing value to
      * StoreKit via the on-device seam. Backs `skan.updateConversionValue`.
      */
@@ -1159,7 +1178,7 @@ class Attriax internal constructor(
     ): AttriaxSkanUpdateResult =
         skanEngine.updateConversionValue(fineValue, coarseValue, lockWindow)
 
-    // -------- Apple Search Ads (AdServices) token capture (Epic 8.5) --------
+    // -------- Apple Search Ads (AdServices) token capture --------
 
     /**
      * Wrapper-supply entrypoint: submit an Apple Search Ads (AdServices) attribution
@@ -1178,7 +1197,7 @@ class Attriax internal constructor(
     private fun postAsaToken(token: String) {
         transport.post(
             AttriaxEndpoints.ASA_TOKEN,
-            com.attriax.sdk.internal.json.Json.encode(
+            Json.encode(
                 AttriaxRequestBuilders.buildAsaTokenBody(
                     projectToken = config.normalizedProjectToken,
                     token = token,
@@ -1188,7 +1207,7 @@ class Attriax internal constructor(
     }
 
     /**
-     * Fire the best-effort ASA token auto-capture once at init (Epic 8.5), gated by
+     * Fire the best-effort ASA token auto-capture once at init, gated by
      * [AttriaxConfig.asaTokenCaptureEnabled] AND attribution consent (mirrors Flutter's
      * `_allowsAttributionTracking` gate). Runs off the init thread on the flush executor
      * because it performs blocking network I/O. The fetch seam returns null off-iOS, so
@@ -1201,7 +1220,7 @@ class Attriax internal constructor(
         flushExecutor.execute { asaTokenManager.captureAndReportIfNeeded() }
     }
 
-    // -------- consent (PARITY §5) — engine methods behind the `consent.gdpr` surface --------
+    // -------- consent — engine methods behind the `consent.gdpr` surface --------
 
     internal val gdprConsentState: AttriaxGdprConsentState get() = consentManager.gdprConsentState
     internal val gdprConsentValues: AttriaxGdprConsentValues? get() = consentManager.gdprConsentValues
@@ -1228,7 +1247,7 @@ class Attriax internal constructor(
     }
 
     /**
-     * Request GDPR data erasure (PARITY §5, row C5 erase). Sends the deviceId to
+     * Request GDPR data erasure. Sends the deviceId to
      * `/api/sdk/v1/privacy/gdpr/erase` (the ONLY consent-family endpoint that
      * carries the deviceId — the check/upsert bodies never do), then resets the
      * SDK to pre-init on success. Blocking I/O — call off the main thread.
@@ -1239,7 +1258,7 @@ class Attriax internal constructor(
             ?: throw IllegalStateException("Attriax device identity is unavailable. Call init() first.")
         transport.post(
             AttriaxEndpoints.GDPR_ERASE,
-            com.attriax.sdk.internal.json.Json.encode(
+            Json.encode(
                 linkedMapOf<String, Any?>(
                     AttriaxApiRequest.FIELD_PROJECT_TOKEN to config.normalizedProjectToken,
                     AttriaxApiRequest.FIELD_DEVICE_ID to deviceId,
@@ -1250,7 +1269,7 @@ class Attriax internal constructor(
     }
 
     /**
-     * Consent-resolution queue reconciliation (PARITY §5, row C5). Runs the three
+     * Consent-resolution queue reconciliation. Runs the three
      * passes over the persisted queue whenever the consent decision changes and we
      * are no longer waiting: (1) IDENTIFY anonymous requests now that identified
      * tracking is allowed, (2) ANONYMIZE denied-but-anonymous-capable requests,
@@ -1314,12 +1333,12 @@ class Attriax internal constructor(
         }
     }
 
-    /** Clear SDK state to pre-init (PARITY §1 reset; rows D2). */
+    /** Clear SDK state to pre-init. */
     fun reset() {
         // Restore the previous OS uncaught-exception handler before wiping state.
         crashReporting.uninstall()
         // Tear down session telemetry BEFORE clearing identity so no in-flight
-        // heartbeat/transition re-persists a snapshot after the wipe (PARITY §3).
+        // heartbeat/transition re-persists a snapshot after the wipe.
         lifecycleBinder.unbind()
         sessionLifecycleManager.reset()
         sessionManager.reset()
@@ -1335,7 +1354,7 @@ class Attriax internal constructor(
         firstLaunch = true
         appOpenScheduled.value = false
         initialized.value = false
-        // Back to pre-init (PARITY — Flutter synchronizer `reset` → `initializing`).
+        // Back to pre-init (Flutter synchronizer `reset` → `initializing`).
         syncState.set(AttriaxSynchronizationState.INITIALIZING)
     }
 
@@ -1356,7 +1375,7 @@ class Attriax internal constructor(
         if (!isEnabled()) return
         if (deviceIdentity == null) return
 
-        // Attestation (PARITY §9) and install-referrer capture (PARITY §3) are both
+        // Attestation and install-referrer capture are both
         // blocking I/O — they must NOT run on the init thread. When NEITHER needs the
         // network this launch, keep the synchronous fast path (re-attaching any cached
         // referrer) so there is zero behavior change for the common case. Otherwise
@@ -1389,7 +1408,7 @@ class Attriax internal constructor(
      * Build the app-open with the (optional) attestation envelope and enqueue it,
      * then flush when attribution dispatch is allowed. Shared by the synchronous
      * (attestation-disabled) and background (attestation-enabled) paths so the
-     * enqueue/hoist/flush semantics are identical (PARITY §3/§5/§9).
+     * enqueue/hoist/flush semantics are identical.
      */
     private fun buildAndEnqueueAppOpen(
         attestation: Map<String, Any?>?,
@@ -1418,11 +1437,11 @@ class Attriax internal constructor(
         // App-open carries attribution/install-referrer data (attribution-linked).
         // Enqueue always (so it is reconciled/hoisted later), but only flush it to
         // the network once attribution tracking is actually allowed — otherwise it
-        // buffers until consent resolves (PARITY §3/§5).
+        // buffers until consent resolves.
         if (allowsAppOpenDispatch()) {
             scheduleFlush()
         } else {
-            // App-open buffered pending attribution consent (PARITY — deferred).
+            // App-open buffered pending attribution consent (deferred).
             syncState.set(AttriaxSynchronizationState.DEFERRED)
         }
     }
@@ -1431,10 +1450,10 @@ class Attriax internal constructor(
     private fun allowsAppOpenDispatch(): Boolean =
         !config.gdprEnabled || consentManager.allowsAttributionTracking()
 
-    private fun enqueue(request: com.attriax.sdk.internal.request.AttriaxApiRequest) {
+    private fun enqueue(request: AttriaxApiRequest) {
         queue.enqueue(
             AttriaxQueuedRequest(
-                id = com.attriax.sdk.internal.AttriaxIdGenerator.generate(),
+                id = AttriaxIdGenerator.generate(),
                 request = request,
                 createdAtMs = clock.nowMs(),
             ),
@@ -1443,7 +1462,7 @@ class Attriax internal constructor(
 
     /**
      * Flush now when [flushImmediately], else arm the coalesced periodic flush
-     * (PARITY §7 — Flutter synchronizer `enqueue`: `flushImmediately || interval==0`
+     * (Flutter synchronizer `enqueue`: `flushImmediately || interval==0`
      * → `scheduleFlush`, otherwise `_scheduleDeferredFlush`).
      */
     private fun scheduleFlushOrDefer(flushImmediately: Boolean) {
@@ -1451,7 +1470,7 @@ class Attriax internal constructor(
     }
 
     /**
-     * Arm a single coalesced flush after `config.eventFlushIntervalMs` (PARITY §7 —
+     * Arm a single coalesced flush after `config.eventFlushIntervalMs` (
      * Flutter `_scheduleDeferredFlush`). Coalescing: a pending handle short-circuits
      * re-arming so timers never stack; the interval-zero case degrades to an
      * immediate flush (mirrors Flutter's `interval == Duration.zero`). Respects the
@@ -1481,17 +1500,17 @@ class Attriax internal constructor(
     }
 
     private fun scheduleFlush() {
-        // An immediate flush supersedes any pending coalesced flush (PARITY §7 —
+        // An immediate flush supersedes any pending coalesced flush (
         // Flutter `scheduleFlush` cancels `_deferredFlushTimer`).
         cancelDeferredFlush()
         if (!isEnabled()) {
-            // Tracking disabled / project token empty (PARITY — disabled synchronization).
+            // Tracking disabled / project token empty (disabled synchronization).
             syncState.set(AttriaxSynchronizationState.DISABLED)
             return
         }
         if (flushExecutor.isShutdown) return
         flushExecutor.execute {
-            // A flush has begun (PARITY — Flutter synchronizer sets `synchronizing`
+            // A flush has begun (Flutter synchronizer sets `synchronizing`
             // on enqueue / connectivity restore before draining the queue).
             syncState.set(AttriaxSynchronizationState.SYNCHRONIZING)
             terminalDropDuringFlush.value = false
@@ -1505,7 +1524,7 @@ class Attriax internal constructor(
     }
 
     /**
-     * Resolve the terminal synchronization state after a flush pass (PARITY —
+     * Resolve the terminal synchronization state after a flush pass (
      * Flutter synchronizer `_flushQueueAndRefreshSynchronization`, adapted to the
      * KMP dispatcher's structure):
      *
@@ -1552,18 +1571,18 @@ class Attriax internal constructor(
          * A scheduler that never fires (used by the pure engine + JVM tests). The
          * android factory injects a real [com.attriax.sdk.android.AttriaxExecutorScheduler].
          */
-        private val NOOP_SCHEDULER = object : com.attriax.sdk.internal.AttriaxScheduler {
+        private val NOOP_SCHEDULER = object : AttriaxScheduler {
             override fun schedulePeriodic(
                 intervalMs: Long,
                 action: () -> Unit,
-            ): com.attriax.sdk.internal.AttriaxScheduler.ScheduledHandle =
-                com.attriax.sdk.internal.AttriaxScheduler.ScheduledHandle { }
+            ): AttriaxScheduler.ScheduledHandle =
+                AttriaxScheduler.ScheduledHandle { }
 
             override fun scheduleOnce(
                 delayMs: Long,
                 action: () -> Unit,
-            ): com.attriax.sdk.internal.AttriaxScheduler.ScheduledHandle =
-                com.attriax.sdk.internal.AttriaxScheduler.ScheduledHandle { }
+            ): AttriaxScheduler.ScheduledHandle =
+                AttriaxScheduler.ScheduledHandle { }
         }
     }
 }

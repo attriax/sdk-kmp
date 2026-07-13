@@ -6,7 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** PARITY row E4 — platform/version OMITTED from event & user payloads; carried on open. */
+/** platform/version OMITTED from event & user payloads; carried on open. */
 class AttriaxRequestBuildersTest {
 
     @Test
@@ -92,7 +92,7 @@ class AttriaxRequestBuildersTest {
         assertFalse(sdk.containsKey("metadata"))
     }
 
-    // -------- CCPA (Epic 10.1) — TOP-LEVEL doNotSell / usPrivacy, omit-when-unset --------
+    // -------- CCPA — TOP-LEVEL doNotSell / usPrivacy, omit-when-unset --------
 
     private val ccpaCtx = AttriaxContextSnapshot(
         packageName = "com.x", appVersion = "1.2.3", appBuildNumber = "45",

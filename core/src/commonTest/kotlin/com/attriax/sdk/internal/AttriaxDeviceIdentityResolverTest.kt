@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** PARITY rows D4 — deviceIdSource precedence + collectAdvertisingId gating. */
+/** deviceIdSource precedence + collectAdvertisingId gating. */
 class AttriaxDeviceIdentityResolverTest {
 
     private class FakeSources(val ssaid: String?, val gaid: String?) : DeviceIdSources {
@@ -62,7 +62,7 @@ class AttriaxDeviceIdentityResolverTest {
         assertEquals(AttriaxDeviceIdSource.ANDROID_SSAID, resolved.source)
     }
 
-    // -------- iOS branch (PARITY §2, iOS: IDFV → IDFA → persistent) --------
+    // -------- iOS branch (iOS: IDFV → IDFA → persistent) --------
 
     @Test
     fun prefersIdfvWhenPresent() {

@@ -19,8 +19,7 @@ import platform.darwin.dispatch_semaphore_signal
 import platform.darwin.dispatch_semaphore_wait
 
 /**
- * iOS actuals for the SKAdNetwork seams (Epic 8.5) — the port of the standalone iOS
- * SDK's `AttriaxSkanPassthrough`.
+ * iOS actuals for the SKAdNetwork seams.
  *
  * SKAN is available on iOS, so [attriaxSkanSupported] returns `true`. The
  * conversion-value update is an HONEST StoreKit passthrough — the pure

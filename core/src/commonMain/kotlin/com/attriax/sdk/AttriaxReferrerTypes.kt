@@ -3,7 +3,7 @@ package com.attriax.sdk
 import com.attriax.sdk.internal.deeplink.AttriaxUri
 
 /**
- * Public referrer value types (PARITY — referrer query API). Mirrors the Flutter
+ * Public referrer value types. Mirrors the Flutter
  * reference `AttriaxInstallReferrerDetails` (`types_links.dart`) and
  * `AttriaxDeepLinkReferrerDetails` (`types_deep_link_lifecycle.dart`), which back
  * the `attriax.referrer` getters.

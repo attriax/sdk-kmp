@@ -5,7 +5,7 @@ import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 
 /**
- * Persists the outbound request queue to a [KeyValueStore] (PARITY §7, row Q1).
+ * Persists the outbound request queue to a [KeyValueStore].
  *
  * All ordering/serialization/corruption logic lives in [AttriaxQueueCodec]
  * (pure); this class adds the persistence + FIFO overflow eviction beyond
@@ -52,7 +52,7 @@ class AttriaxQueueManager(
 
     /**
      * Persist a flushed queue [remaining] WITHOUT clobbering requests that were
-     * enqueued concurrently during the flush (PARITY §7). The dispatcher snapshots
+     * enqueued concurrently during the flush. The dispatcher snapshots
      * the queue at the start of a flush; any request appended while the flush was
      * in flight (its id is in neither [remaining] nor [snapshotIds]) must be
      * preserved and appended after the flushed remainder — otherwise a plain
@@ -72,7 +72,7 @@ class AttriaxQueueManager(
     }
 
     /**
-     * Atomically rewrite queued entries (PARITY §5, row C5 consent reconciliation).
+     * Atomically rewrite queued entries (consent reconciliation).
      * [transform] returns a replacement entry, or null to leave the entry as-is.
      * Returns the number of entries actually changed. The read-modify-write is
      * guarded by the same lock as enqueue/flush so no concurrent mutation can
@@ -97,7 +97,7 @@ class AttriaxQueueManager(
     }
 
     /**
-     * Atomically discard queued entries matching [predicate] (PARITY §5, row C5
+     * Atomically discard queued entries matching [predicate] (
      * pass 3). Returns the number of entries removed.
      */
     fun discardWhere(predicate: (AttriaxQueuedRequest) -> Boolean): Int = synchronized(lock) {

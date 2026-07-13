@@ -1,7 +1,7 @@
 package com.attriax.sdk
 
 /**
- * Immutable SDK configuration (PARITY §1, rows I2/I3).
+ * Immutable SDK configuration.
  *
  * Defaults mirror the Flutter reference `AttriaxConfig`
  * (`types_session_config.dart:101-248`). Durations are expressed in
@@ -19,7 +19,7 @@ data class AttriaxConfig(
     val appBuildNumber: String? = null,
     val appPackageName: String? = null,
     /**
-     * Extra SDK metadata attached to the runtime context payload (PARITY — Flutter
+     * Extra SDK metadata attached to the runtime context payload (Flutter
      * `AttriaxConfig.sdkMetadata`, types_session_config.dart:108/150). Merged into
      * the app-open `sdk.metadata` block (see [AttriaxRequestBuilders.buildOpen]).
      * `null` omits the block entirely. Flutter defaults this to an empty map and
@@ -29,7 +29,7 @@ data class AttriaxConfig(
      */
     val sdkMetadata: Map<String, Any?>? = null,
     /**
-     * Optional wrapper-supplied device context (PARITY — Flutter `DeviceContextDto`).
+     * Optional wrapper-supplied device context (Flutter `DeviceContextDto`).
      * A host wrapper (Flutter / Unity / React Native) can populate the full device
      * field set here; every supplied value WINS over the core's Android auto-capture
      * (the wrapper knows its runtime best). `null` (the default) leaves the core to
@@ -38,7 +38,7 @@ data class AttriaxConfig(
      */
     val deviceContext: AttriaxDeviceContext? = null,
     /**
-     * Whether verbose (debug/info) SDK logging is emitted (PARITY — Flutter
+     * Whether verbose (debug/info) SDK logging is emitted (Flutter
      * `AttriaxConfig.enableDebugLogs`, types_session_config.dart:159). Warnings and
      * errors always emit; debug/info are gated behind this flag. Flutter's field is
      * nullable and resolves to `kDebugMode` (on in debug builds, off in release); the
@@ -59,14 +59,14 @@ data class AttriaxConfig(
     val firstLaunchSessionHeartbeatIntervalMs: Long = 30_000L,
     /**
      * Whether to capture the Google Play install referrer on first launch and
-     * attach it to the app-open (PARITY §3 — app-open enrichment). DEFAULT-ON
+     * attach it to the app-open (app-open enrichment). DEFAULT-ON
      * (a core attribution signal, unlike opt-in attestation). Degrades silently to
      * no-op on non-Play builds / when the Play client is unavailable. Android-only.
      */
     val installReferrerEnabled: Boolean = true,
     val attestationEnabled: Boolean = false,
     /**
-     * Optional device-attestation provider (PARITY §9). Ignored unless
+     * Optional device-attestation provider. Ignored unless
      * [attestationEnabled] is `true`. `null` → the shipped
      * [NoopAttestationProvider] (no attestation). Supply
      * [com.attriax.sdk.android.AttriaxPlayIntegrityAttestationProvider] to opt into
@@ -76,7 +76,7 @@ data class AttriaxConfig(
     val pinnedCertificateSha256Fingerprints: List<String> = emptyList(),
     /**
      * Whether a resolved deep link that carries a backend browser-fallback URL may be
-     * opened automatically by the SDK (PARITY — Flutter `AttriaxConfig
+     * opened automatically by the SDK (Flutter `AttriaxConfig
      * .automaticBrowserHandling`, types_session_config.dart:119/186-187). DEFAULT-ON,
      * matching Flutter. When `true` and a resolution carries a `browserAction`, the
      * SDK opens the URL via the injected [AttriaxBrowserOpener] (an ACTION_VIEW intent
@@ -84,8 +84,8 @@ data class AttriaxConfig(
      */
     val automaticBrowserHandling: Boolean = true,
     /**
-     * Wrapper-supplied Apple ATT (App Tracking Transparency) status (Epic 8.5,
-     * PARITY §5 — `consent.att`). ATT is an Apple-only framework the KMP core
+     * Wrapper-supplied Apple ATT (App Tracking Transparency) status (
+     * `consent.att`). ATT is an Apple-only framework the KMP core
      * cannot query off-iOS, so a host wrapper (Flutter / Unity / React Native iOS
      * plugin) that already obtained the status via `ATTrackingManager` supplies it
      * here (or at runtime via [AttriaxAttConsent] / [com.attriax.sdk.Attriax]).
@@ -96,7 +96,7 @@ data class AttriaxConfig(
      */
     val attStatus: AttriaxAttStatus? = null,
     /**
-     * Whether the SDK requests Apple ATT authorization on init (PARITY — Flutter
+     * Whether the SDK requests Apple ATT authorization on init (Flutter
      * `AttriaxConfig.requestTrackingAuthorizationOnInit`,
      * types_session_config.dart:117/181). DEFAULT-OFF, matching Flutter. When
      * `true`, [com.attriax.sdk.Attriax.init] invokes the ATT request seam (a no-op
@@ -106,14 +106,14 @@ data class AttriaxConfig(
     val requestTrackingAuthorizationOnInit: Boolean = false,
     /**
      * Timeout (ms) for resolving the Apple ATT authorization status on init
-     * (PARITY — Flutter `AttriaxConfig.trackingAuthorizationStatusTimeout`,
+     * (Flutter `AttriaxConfig.trackingAuthorizationStatusTimeout`,
      * types_session_config.dart:118/184, a `Duration` defaulting to 60s). Expressed
      * in milliseconds here to keep [AttriaxConfig] time-library-free; default
      * `60_000` matches Flutter's 60-second default. Passed to the ATT request seam.
      */
     val trackingAuthorizationStatusTimeoutMs: Long = 60_000L,
     /**
-     * SKAdNetwork (SKAN) configuration (Epic 8.5, PARITY — Flutter `AttriaxConfig.skan`,
+     * SKAdNetwork (SKAN) configuration (Flutter `AttriaxConfig.skan`,
      * a nullable `AttriaxSkanConfig`). `null` (the default) resolves to a default
      * [AttriaxSkanConfig] (`enabled = true`), matching Flutter's
      * `_config.skan ?? const AttriaxSkanConfig()`. `enabled = false` makes
@@ -124,7 +124,7 @@ data class AttriaxConfig(
     val skan: AttriaxSkanConfig? = null,
     /**
      * Whether the SDK auto-captures the Apple Search Ads (AdServices) attribution token
-     * on init and POSTs it to `/api/sdk/v1/asa/token` (Epic 8.5). DEFAULT-ON.
+     * on init and POSTs it to `/api/sdk/v1/asa/token`. DEFAULT-ON.
      *
      * NOTE (default difference): the Flutter reference has NO dedicated ASA flag — it
      * always attempts capture on init on iOS, gated only by attribution consent. The
@@ -137,7 +137,7 @@ data class AttriaxConfig(
      */
     val asaTokenCaptureEnabled: Boolean = true,
     /**
-     * Wrapper-supplied CCPA "do not sell / share" election (Epic 10.1, PARITY §5 —
+     * Wrapper-supplied CCPA "do not sell / share" election (
      * the `consent.ccpa` sub-surface). Sent TOP-LEVEL as `doNotSell` on the app-open
      * and identify requests (mirrors `attStatus`), NOT nested under `device`. The
      * election is LATCHING server-side; the SDK only sends the current value. `null`
@@ -149,7 +149,7 @@ data class AttriaxConfig(
      */
     val doNotSell: Boolean? = null,
     /**
-     * Wrapper-supplied raw IAB US-Privacy (USP) string (Epic 10.1, PARITY §5 — the
+     * Wrapper-supplied raw IAB US-Privacy (USP) string (the
      * `consent.ccpa` sub-surface), e.g. `1YYN`. Sent TOP-LEVEL as `usPrivacy` on the
      * app-open and identify requests (mirrors `attStatus`), NOT nested under `device`.
      * `null`/blank (the default) → the field is OMITTED. A non-blank value is EMITTED,

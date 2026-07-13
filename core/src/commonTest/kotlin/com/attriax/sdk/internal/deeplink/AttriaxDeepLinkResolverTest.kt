@@ -9,12 +9,12 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Pure deep-link resolver tests (PARITY §6, rows DL2/DL4): link-path normalization,
+ * Pure deep-link resolver tests: link-path normalization,
  * query-parameter metadata, isInitialLink flag, and resolution-status mapping.
  */
 class AttriaxDeepLinkResolverTest {
 
-    // -------- linkPath normalization (row DL2) --------
+    // -------- linkPath normalization --------
 
     @Test
     fun normalizeStripsLeadingAndTrailingSlashes() {
@@ -50,7 +50,7 @@ class AttriaxDeepLinkResolverTest {
         assertEquals("open/product/42", AttriaxDeepLinkResolver.extractLinkPathFromUri(uri))
     }
 
-    // -------- query params -> metadata + isInitialLink (row DL2) --------
+    // -------- query params -> metadata + isInitialLink --------
 
     @Test
     fun buildResolveMetadataCarriesIsInitialLinkAndQueryParams() {
@@ -77,7 +77,7 @@ class AttriaxDeepLinkResolverTest {
         assertEquals(false, metadata["isInitialLink"])
     }
 
-    // -------- resolution status mapping (row DL4) --------
+    // -------- resolution status mapping --------
 
     @Test
     fun statusMappingCoversAllWireValues() {

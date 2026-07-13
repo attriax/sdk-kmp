@@ -14,8 +14,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Coverage for the consent state machine + generation-guarded sync
- * (PARITY §5, rows C1/C2/C3). The centerpiece is [downgrade race guard discards
+ * Coverage for the consent state machine + generation-guarded sync.
+ * The centerpiece is [downgrade race guard discards
  * a stale echo and re-syncs the newer state] — the deterministic reproduction of
  * the anonymous-analytics incident.
  *
@@ -98,7 +98,7 @@ class AttriaxConsentManagerTest {
         syncExecutor = executor,
     )
 
-    // -------- rows C1: state transitions + needsConsent --------
+    // -------- state transitions + needsConsent --------
 
     @Test
     fun `default state is unknown and waiting`() {
@@ -153,7 +153,7 @@ class AttriaxConsentManagerTest {
         assertFalse(m.needsConsent(localOnly = true))
     }
 
-    // -------- row C2: wire shape — consentId present, NO deviceId --------
+    // -------- wire shape — consentId present, NO deviceId --------
 
     @Test
     fun `consent upsert body carries consentId and no device or user id`() {
@@ -252,7 +252,7 @@ class AttriaxConsentManagerTest {
     }
 
     // ==================================================================== //
-    // row C3 — THE DOWNGRADE RACE. This reproduces the anonymous-analytics
+    // THE DOWNGRADE RACE. This reproduces the anonymous-analytics
     // incident: a rapid setConsent(true) then setConsent(false) where the OLDER
     // (true) upsert echo returns AFTER the newer (false) state is set. The
     // generation guard must discard the stale true-echo and re-sync false.

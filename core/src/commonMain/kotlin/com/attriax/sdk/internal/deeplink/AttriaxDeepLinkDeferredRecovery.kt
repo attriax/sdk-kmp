@@ -6,7 +6,7 @@ import com.attriax.sdk.AttriaxDeepLinkTrigger
 import com.attriax.sdk.internal.AttriaxIso8601
 
 /**
- * Pure deferred deep-link recovery from the app-open RESPONSE (PARITY §6, row DL3).
+ * Pure deferred deep-link recovery from the app-open RESPONSE.
  * Mirrors the Flutter reference `attriax_deep_link_resolver.dart` (buildDeferredUri /
  * buildDeferredResolution) + `attriax_deep_link_manager.dart` (handleDeferredAppOpen).
  *

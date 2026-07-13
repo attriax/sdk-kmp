@@ -8,7 +8,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Pure lowering logic (PARITY rows E2/E3/E6) — currency validation, refund
+ * Pure lowering logic — currency validation, refund
  * negation, and notification-source inference, all framework-free.
  */
 class AttriaxRevenueTest {

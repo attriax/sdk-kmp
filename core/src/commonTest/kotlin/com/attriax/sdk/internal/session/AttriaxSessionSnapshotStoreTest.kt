@@ -5,7 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-/** PARITY row S5: session snapshot persist / restore / revalidate + corruption. */
+/** Session snapshot persist / restore / revalidate + corruption. */
 class AttriaxSessionSnapshotStoreTest {
 
     private class MapStore : KeyValueStore {

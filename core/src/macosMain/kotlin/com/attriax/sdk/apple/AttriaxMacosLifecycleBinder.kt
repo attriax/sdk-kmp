@@ -12,7 +12,7 @@ import platform.darwin.NSObjectProtocol
 
 /**
  * macOS [AttriaxLifecycleBinder]: maps `NSApplication` active/resign/terminate
- * notifications onto the pure [AttriaxSessionLifecycleManager] (PARITY §3, row S3),
+ * notifications onto the pure [AttriaxSessionLifecycleManager],
  * the AppKit sibling of the iOS `AttriaxIosLifecycleBinder`.
  *
  *  - `didBecomeActive`  (foreground) → [AttriaxSessionLifecycleManager.handleForeground]

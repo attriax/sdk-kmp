@@ -21,8 +21,7 @@ import platform.darwin.dispatch_semaphore_signal
 import platform.darwin.dispatch_semaphore_wait
 
 /**
- * App Attest attestation provider (PARITY §9, slug `app_attest`) — the Kotlin/Native
- * port of the standalone iOS SDK's `AppAttestAttestationProvider`, implementing the
+ * App Attest attestation provider (slug `app_attest`), implementing the
  * public [AttriaxAttestationProvider] seam. Supply an instance to
  * `AttriaxConfig.attestationProvider` with `attestationEnabled = true` to opt in.
  *
@@ -35,7 +34,7 @@ import platform.darwin.dispatch_semaphore_wait
  * `attest` is fully defensive: an unsupported device (`isSupported == false`, e.g. the
  * Simulator or a device without the Secure Enclave), a key-generation / attestation
  * error, or any thrown error degrades to `null` so the SDK sends the app-open with no
- * envelope rather than crashing (row AT2). The generated App Attest key id is
+ * envelope rather than crashing. The generated App Attest key id is
  * persisted (SDK `NSUserDefaults` suite) and reused across launches — App Attest keys
  * are device-and-app bound and expensive to mint; a failed attestation forgets the
  * key so the next launch mints a fresh one.

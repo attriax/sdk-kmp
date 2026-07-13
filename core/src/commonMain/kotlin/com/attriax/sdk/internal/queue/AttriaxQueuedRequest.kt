@@ -3,7 +3,7 @@ package com.attriax.sdk.internal.queue
 import com.attriax.sdk.internal.request.AttriaxApiRequest
 
 /**
- * A single persisted queued request (PARITY §7, row Q1).
+ * A single persisted queued request.
  *
  * The persisted JSON shape is:
  * `{id, kind, body, createdAt, attemptCount, lastAttemptAt, lastErrorClass,

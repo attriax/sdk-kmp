@@ -6,7 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** PARITY rows E5 (field hoist/strip), Q5 (limits + split), Q6 (share identity incl. projectToken). */
+/** Field hoist/strip, limits + split, share identity incl. projectToken. */
 class AttriaxBatchingTest {
 
     private fun event(token: String, deviceId: String?, source: String?, name: String = "e") =

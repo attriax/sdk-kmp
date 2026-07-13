@@ -6,7 +6,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Pure consent-policy coverage (PARITY §5, rows C1/C4). Exercises the two gate
+ * Pure consent-policy coverage. Exercises the two gate
  * families (strict [AttriaxConsentPolicy.allowsCategory] vs permissive
  * [AttriaxConsentPolicy.canCaptureSignal]) and the anonymous-capable signal set.
  */
@@ -19,7 +19,7 @@ class AttriaxConsentPolicyTest {
         anonymous: Boolean = true,
     ) = AttriaxConsentPolicy(gdprEnabled, state, values, anonymous)
 
-    // -------- row C1: states / waiting semantics --------
+    // -------- states / waiting semantics --------
 
     @Test
     fun `unknown and pending are waiting states`() {
@@ -40,7 +40,7 @@ class AttriaxConsentPolicyTest {
         )
     }
 
-    // -------- row C4: category gate matrix (which signals are anon-capable) --------
+    // -------- category gate matrix (which signals are anon-capable) --------
 
     @Test
     fun `anonymous-capable signals are analytics adEvents session deepLink only`() {

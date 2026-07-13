@@ -3,8 +3,8 @@ package com.attriax.sdk.internal
 import com.attriax.sdk.AttriaxNotificationEventSource
 
 /**
- * Pure, framework-free lowering helpers shared by the tracking surface
- * (PARITY §4, rows E2/E3/E6). Kept off the platform classpath so the reserved
+ * Pure, framework-free lowering helpers shared by the tracking surface.
+ * Kept off the platform classpath so the reserved
  * event-name/param-key lowering, refund negation, currency validation, and
  * notification-source inference stay unit-testable like the slice-1 engine.
  */
@@ -12,13 +12,13 @@ object AttriaxRevenue {
 
     private val CURRENCY_REGEX = Regex("^[A-Z]{3}$")
 
-    /** Normalized revenue amount + currency after validation (row E3). */
+    /** Normalized revenue amount + currency after validation. */
     data class NormalizedRevenue(val revenue: Double, val currency: String)
 
     /**
      * Validate [currency] against `^[A-Z]{3}$` (after trim+uppercase). On a valid
      * code the [revenue] passes through unchanged; otherwise revenue is defaulted
-     * to `0` and the currency to `USD` (the caller emits a warning) — row E3.
+     * to `0` and the currency to `USD` (the caller emits a warning) —.
      */
     fun normalizeRevenueCurrency(revenue: Double, currency: String?): NormalizedRevenue {
         val normalizedCurrency = currency?.trim()?.takeIf { it.isNotEmpty() }?.uppercase()
@@ -36,14 +36,14 @@ object AttriaxRevenue {
 
     /**
      * Refund revenue is the negated absolute value of the normalized revenue, with
-     * `0` preserved as `0` (avoids a signed-zero) — row E2.
+     * `0` preserved as `0` (avoids a signed-zero) —.
      */
     fun refundRevenue(normalizedRevenue: Double): Double =
         if (normalizedRevenue == 0.0) 0.0 else -kotlin.math.abs(normalizedRevenue)
 
     /**
      * Best-effort inference of the delivery channel from a raw FCM/APNs payload
-     * (row E6). APNs payloads carry an `aps` envelope; FCM payloads carry a
+     * APNs payloads carry an `aps` envelope; FCM payloads carry a
      * `google.*` / `gcm.*` key. Returns `null` when undecidable so the server
      * falls back to `other`.
      */

@@ -35,9 +35,7 @@ import platform.darwin.dispatch_semaphore_signal
 import platform.darwin.dispatch_semaphore_wait
 
 /**
- * The single long-lived `NSURLSession`-backed Apple transport (PARITY §8, rows
- * W1/W2/W3) — the Kotlin/Native port of the standalone iOS SDK's
- * `AttriaxURLSessionClient`.
+ * The single long-lived `NSURLSession`-backed Apple transport.
  *
  * Responsibilities (byte-for-byte wire parity with the Android OkHttp / JVM / desktop
  * Ktor transports — the transport is the only wire boundary, so any drift here is a

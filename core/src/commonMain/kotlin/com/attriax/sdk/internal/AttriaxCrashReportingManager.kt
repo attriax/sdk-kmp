@@ -5,7 +5,7 @@ import com.attriax.sdk.internal.request.AttriaxApiRequest
 import com.attriax.sdk.internal.request.AttriaxEndpoints
 
 /**
- * Automatic crash reporting (PARITY §4 — Flutter reference
+ * Automatic crash reporting (Flutter reference
  * `AttriaxCrashReportingManager`, attriax_crash_reporting_manager.dart).
  *
  * Two durability strategies, both persisting the crash as the SAME crash/error wire
@@ -63,7 +63,7 @@ internal class AttriaxCrashReportingManager(
     }
 
     /**
-     * One-shot replay of a crash a prior fatal handler persisted (PARITY —
+     * One-shot replay of a crash a prior fatal handler persisted (
      * `_replayPendingCrashReport`). Enqueues it through the normal queue path, then
      * clears the record regardless of outcome so a poison payload never loops across
      * restarts. Gated by [enabled] — a disabled runtime neither replays nor clears.
@@ -101,7 +101,7 @@ internal class AttriaxCrashReportingManager(
     /**
      * OS uncaught-exception callback. SYNCHRONOUS persist ONLY — the process is
      * dying, so we cannot rely on the async queue/flush; recovery happens via
-     * [replayPendingCrashReport] on the next launch (PARITY — `_persistFatalCrashForRetry`).
+     * [replayPendingCrashReport] on the next launch (`_persistFatalCrashForRetry`).
      */
     private fun onFatalCrash(throwable: Throwable) {
         try {
@@ -117,7 +117,7 @@ internal class AttriaxCrashReportingManager(
     }
 
     companion object {
-        /** PARITY — Flutter `pendingCrashReportStorageKey`. */
+        /** Flutter `pendingCrashReportStorageKey`. */
         const val KEY_PENDING_CRASH = "attriax.crash.pending"
 
         /** Source label stamped on OS-captured fatal crashes. */

@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** PARITY rows Q1 (serialize/corruption) and FR1 (legacy field/kind normalization). */
+/** Serialize / corruption and legacy field/kind normalization. */
 class AttriaxQueueCodecTest {
 
     private fun event(id: String) = AttriaxQueuedRequest(

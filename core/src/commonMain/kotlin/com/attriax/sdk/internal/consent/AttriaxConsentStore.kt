@@ -4,7 +4,7 @@ import com.attriax.sdk.internal.AttriaxIdGenerator
 import com.attriax.sdk.internal.KeyValueStore
 import com.attriax.sdk.internal.json.Json
 
-/** Snapshot of the persisted consent decision (PARITY §5, row C2). */
+/** Snapshot of the persisted consent decision. */
 data class AttriaxStoredConsent(
     val state: AttriaxGdprConsentState,
     val values: AttriaxGdprConsentValues?,
@@ -16,7 +16,7 @@ data class AttriaxStoredConsent(
 
 /**
  * Persists the GDPR consent decision + the SDK-generated `consentId` to the
- * [KeyValueStore] (PARITY §5, row C2). The consentId is generated ONCE with the
+ * [KeyValueStore]. The consentId is generated ONCE with the
  * same id generator used for device / queued-request ids and reused for every
  * consent check/upsert, so the backend can correlate a device's consent history
  * WITHOUT the SDK ever sending a device or user identifier on the consent body.

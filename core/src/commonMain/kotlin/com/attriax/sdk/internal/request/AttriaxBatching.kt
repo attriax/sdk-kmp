@@ -4,13 +4,13 @@ import com.attriax.sdk.internal.request.AttriaxApiRequest.Companion.FIELD_DEVICE
 import com.attriax.sdk.internal.request.AttriaxApiRequest.Companion.FIELD_DEVICE_ID_SOURCE
 import com.attriax.sdk.internal.request.AttriaxApiRequest.Companion.FIELD_PROJECT_TOKEN
 
-/** Batch limits (PARITY rows Q5): ≤100 items, ≤256 KiB encoded. */
+/** Batch limits: ≤100 items, ≤256 KiB encoded. */
 object AttriaxBatchLimits {
     const val MAX_ITEMS = 100
     const val MAX_BODY_BYTES = 256 * 1024
 }
 
-/** Shared identity that consecutive batchable requests must agree on (row Q6). */
+/** Shared identity that consecutive batchable requests must agree on. */
 data class AttriaxBatchIdentity(
     val projectToken: String,
     val deviceId: String,
@@ -19,7 +19,7 @@ data class AttriaxBatchIdentity(
 
 /**
  * Pure batching field-placement + grouping helpers
- * (PARITY §4/§7, rows E5/Q6; Flutter `batching_helpers.dart:63-80`).
+ * (Flutter `batching_helpers.dart:63-80`).
  *
  * The batch-share identity INCLUDES `projectToken` (multi-project; sdk-js omits
  * it — we mirror Flutter). Each batch item strips

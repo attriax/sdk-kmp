@@ -8,7 +8,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Install-referrer capture policy (PARITY §3), unit-tested against fakes — no
+ * Install-referrer capture policy, unit-tested against fakes — no
  * Android / Play client. Proves cache-first re-attachment, fetch-once-with-one-
  * retry, non-persistence of empty results, and full inertness when disabled or
  * when the provider is [AttriaxInstallReferrerProvider.Unavailable].

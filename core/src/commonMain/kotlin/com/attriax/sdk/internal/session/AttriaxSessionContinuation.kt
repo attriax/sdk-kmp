@@ -2,7 +2,7 @@ package com.attriax.sdk.internal.session
 
 /**
  * A persisted session snapshot's identity + timing fields relevant to the
- * continuation decision (PARITY §3, row S2/S5).
+ * continuation decision.
  */
 data class AttriaxSessionSnapshot(
     val sessionId: String,
@@ -19,7 +19,7 @@ data class AttriaxSessionSnapshot(
     val isFirstLaunch: Boolean = false,
     val sdkPackageVersion: String? = null,
 ) {
-    /** Clamped ms-since-start for a lifecycle event at [occurredAtMs] (row S3). */
+    /** Clamped ms-since-start for a lifecycle event at [occurredAtMs]. */
     fun sessionRelativeTimeMs(occurredAtMs: Long): Long =
         (occurredAtMs - startedAtMs).coerceIn(0L, Int.MAX_VALUE.toLong())
 }
@@ -34,7 +34,7 @@ data class AttriaxSessionContext(
 )
 
 /**
- * Session continuation-window policy (PARITY §3, row S2;
+ * Session continuation-window policy (
  * Flutter `session/attriax_session_continuation_policy.dart`).
  *
  * Window = `2 × heartbeatInterval` clamped to `[60s, 30min]`. On restore, a
@@ -79,7 +79,7 @@ object AttriaxSessionContinuation {
     }
 
     /**
-     * Inferred `end` timestamp for a recovered (replaced) session (row S5). The
+     * Inferred `end` timestamp for a recovered (replaced) session. The
      * session ended while the app was not running, so its projected end
      * (lastActivity + window) is clamped to [nowMs] — it can never postdate the
      * replacing session's start, which would produce out-of-order lifecycle events.
@@ -91,7 +91,7 @@ object AttriaxSessionContinuation {
         return if (projectedEnd > nowMs) nowMs else projectedEnd
     }
 
-    /** Session lifecycle kinds (row S3). */
+    /** Session lifecycle kinds. */
     object Lifecycle {
         const val START = "start"
         const val HEARTBEAT = "heartbeat"

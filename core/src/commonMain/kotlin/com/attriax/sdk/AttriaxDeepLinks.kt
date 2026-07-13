@@ -1,7 +1,7 @@
 package com.attriax.sdk
 
 /**
- * Public deep-link surface exposed as `attriax.deepLinks` (PARITY §6, rows DL1–DL4).
+ * Public deep-link surface exposed as `attriax.deepLinks`.
  * Mirrors the Flutter reference `AttriaxDeepLinks` (`attriax_deep_links.dart`),
  * adapted to a native library: instead of a platform EventChannel, the host app
  * forwards its Activity intents.
@@ -15,7 +15,7 @@ package com.attriax.sdk
  */
 class AttriaxDeepLinks internal constructor(private val engine: Attriax) {
 
-    // -------- native capture (row DL1) --------
+    // -------- native capture --------
 
     /**
      * Feed a raw deep-link URI string directly (for hosts that resolve the URI
@@ -70,7 +70,7 @@ class AttriaxDeepLinks internal constructor(private val engine: Attriax) {
 
     /**
      * Block until the resolution for [rawEvent] completes, returning the resolved
-     * deep-link event (PARITY — Flutter `waitResolution`, attriax_deep_links.dart:46-48).
+     * deep-link event (Flutter `waitResolution`, attriax_deep_links.dart:46-48).
      * Returns null when the resolution failed, was withheld, timed out, or [rawEvent]
      * was never staged for resolution. MUST be called off the main thread (it blocks).
      */
@@ -83,7 +83,7 @@ class AttriaxDeepLinks internal constructor(private val engine: Attriax) {
      * Record a deep link manually (public `recordDeepLink`). Use when your router
      * receives a URI before the SDK captures it. [metadata] is sent with the
      * resolution request; the resolved event is emitted to observers AND returned
-     * here (PARITY — Flutter `recordDeepLink` returns the completed event,
+     * here (Flutter `recordDeepLink` returns the completed event,
      * attriax_deep_links.dart:90-94). Returns null when the resolve failed, was
      * withheld by consent, timed out, or the URI was malformed. Performs blocking I/O
      * — call off the main thread.

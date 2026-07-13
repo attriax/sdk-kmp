@@ -132,7 +132,7 @@ class AttriaxDispatcherTest {
         assertTrue(queue.readAll().isEmpty())
     }
 
-    // ---- PARITY row S4: session keep-alive injection ----
+    // ---- session keep-alive injection ----
 
     private fun sessionRequest(token: String, deviceId: String, sessionId: String, kind: String) =
         AttriaxRequestBuilders.buildSession(

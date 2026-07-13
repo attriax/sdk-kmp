@@ -6,7 +6,7 @@ import java.awt.GraphicsEnvironment
 import java.net.URI
 
 /**
- * JVM-desktop [AttriaxBrowserOpener] actual (PARITY §6 — Flutter
+ * JVM-desktop [AttriaxBrowserOpener] actual (Flutter
  * `AttriaxPlatform.openBrowserUrl`; the Android sibling is
  * [com.attriax.sdk.android.AttriaxAndroidBrowserOpener]). Opens the resolved
  * browser-fallback URL through [java.awt.Desktop.browse].

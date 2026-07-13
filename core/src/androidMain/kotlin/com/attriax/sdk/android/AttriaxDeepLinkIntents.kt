@@ -4,7 +4,7 @@ import android.content.Intent
 
 /**
  * Thin Android adapter that pulls the deep-link URI out of an
- * [android.content.Intent] (PARITY §6, row DL1). This is the ONLY deep-link file
+ * [android.content.Intent]. This is the ONLY deep-link file
  * that touches an Android framework type, keeping the core (`internal/deeplink`)
  * JVM-testable.
  *

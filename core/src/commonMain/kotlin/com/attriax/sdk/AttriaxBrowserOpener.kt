@@ -1,7 +1,7 @@
 package com.attriax.sdk
 
 /**
- * Platform seam for opening a resolved deep-link browser-fallback URL (PARITY §6 —
+ * Platform seam for opening a resolved deep-link browser-fallback URL (
  * Flutter `AttriaxPlatform.openBrowserUrl`, invoked by
  * `attriax_deep_link_browser_handler.dart`). Injected like the other android
  * adapters (scheduler / install-referrer / lifecycle binder) rather than an

@@ -9,7 +9,7 @@ import com.google.android.play.core.integrity.IntegrityTokenResponse
 import com.google.android.gms.tasks.Tasks
 
 /**
- * Play Integrity attestation provider (PARITY §9, slug `play_integrity`).
+ * Play Integrity attestation provider (slug `play_integrity`).
  *
  * This is the ONLY place the real Play Integrity API is touched, keeping the
  * flow/envelope logic ([com.attriax.sdk.internal.attestation.AttriaxAttestationManager])
@@ -36,7 +36,7 @@ import com.google.android.gms.tasks.Tasks
  * while attestation IS enabled, [attest] catches the resulting
  * `NoClassDefFoundError`/`LinkageError` (via the `Throwable` catch below) and
  * degrades to `null` — the SDK then sends the open with no envelope rather than
- * crashing init (row AT2).
+ * crashing init.
  *
  * ## Real token minting is device-only
  * `requestIntegrityToken` requires Google Play Services and a configured Play
@@ -73,7 +73,7 @@ class AttriaxPlayIntegrityAttestationProvider(
             if (token.isNullOrEmpty()) null else AttriaxAttestationToken(token = token)
         } catch (e: Throwable) {
             // Play Integrity unavailable / errored / dependency missing → degrade to
-            // null so attestation never breaks init (row AT2). Includes
+            // null so attestation never breaks init. Includes
             // NoClassDefFoundError when the runtime dependency is absent.
             null
         }

@@ -9,7 +9,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * PARITY §9 rows AT1/AT2 — pure attestation flow (Flutter reference
+ * pure attestation flow (Flutter reference
  * `attriax_attestation_manager_test.dart`). No device / Play Services: the
  * challenge fetch and the provider are fakes, so the whole envelope-assembly + the
  * never-break-init invariant is unit-tested.

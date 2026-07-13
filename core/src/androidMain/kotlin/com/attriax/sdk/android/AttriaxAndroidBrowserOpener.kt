@@ -6,7 +6,7 @@ import android.net.Uri
 import com.attriax.sdk.AttriaxBrowserOpener
 
 /**
- * Android [AttriaxBrowserOpener] actual (PARITY §6 — Flutter
+ * Android [AttriaxBrowserOpener] actual (Flutter
  * `AttriaxPlatform.openBrowserUrl`). Fires an `ACTION_VIEW` intent for the resolved
  * browser-fallback URL. Uses the application context, so `FLAG_ACTIVITY_NEW_TASK` is
  * required (there may be no Activity on the calling stack). Best-effort: a malformed

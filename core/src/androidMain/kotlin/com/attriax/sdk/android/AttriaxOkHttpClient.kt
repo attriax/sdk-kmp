@@ -15,7 +15,7 @@ import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 
 /**
- * The single long-lived OkHttp-backed transport (PARITY §8, rows W1/W2/W3).
+ * The single long-lived OkHttp-backed transport.
  *
  * Responsibilities:
  *  - stamp the mandatory real User-Agent on EVERY request (load-bearing: the

@@ -1,6 +1,6 @@
 package com.attriax.sdk.internal
 
-/** Device-id source slugs (PARITY §2 / row D4). */
+/** Device-id source slugs. */
 object AttriaxDeviceIdSource {
     const val ANDROID_SSAID = "android_ssaid"
     const val ANDROID_GAID = "android_gaid"
@@ -18,7 +18,7 @@ data class ResolvedDeviceId(
 )
 
 /**
- * Resolves the preferred device id + source (PARITY §2, rows D1–D4).
+ * Resolves the preferred device id + source.
  *
  * Precedence mirrors the Flutter reference `attriax_device_identity_resolver.dart`:
  *   1. Apple `identifierForVendor` (IDFV) → source `ios_idfv`   (iOS branch)

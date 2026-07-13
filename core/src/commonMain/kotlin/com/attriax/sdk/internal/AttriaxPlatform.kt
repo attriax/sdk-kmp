@@ -32,7 +32,7 @@ internal expect fun attriaxBackgroundExecutor(name: String): AttriaxBackgroundEx
 
 /**
  * The fully-qualified exception type name (replaces `Throwable.javaClass.name`),
- * used to stamp the crash `exceptionType` wire field (PARITY §4).
+ * used to stamp the crash `exceptionType` wire field.
  */
 internal expect fun attriaxExceptionName(e: Throwable): String
 
@@ -40,7 +40,7 @@ internal expect fun attriaxExceptionName(e: Throwable): String
 internal expect fun attriaxLogError(message: String)
 
 /**
- * A handle to an installed process-wide uncaught-exception handler (PARITY §4 —
+ * A handle to an installed process-wide uncaught-exception handler (
  * Flutter `AttriaxCrashReportingManager` handler install/restore). [uninstall]
  * restores the previously-installed handler; it is idempotent and only restores
  * when our handler is still the active one.

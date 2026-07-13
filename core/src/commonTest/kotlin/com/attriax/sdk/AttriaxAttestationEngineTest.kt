@@ -19,7 +19,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * PARITY §9 rows AT1/AT2 driven through the REAL [Attriax] engine with a fake
+ * driven through the REAL [Attriax] engine with a fake
  * challenge transport + fake provider (no device / Play Services). Proves the
  * app-open body carries the attestation envelope when a token is produced, omits
  * it in every degrade path, and that init is never broken.

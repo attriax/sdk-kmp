@@ -5,8 +5,8 @@ import com.attriax.sdk.AttriaxAttestationProviderSlug
 import com.attriax.sdk.NoopAttestationProvider
 
 /**
- * The single-use challenge issued by `POST /api/sdk/attestation/challenge`
- * (PARITY §8/§9). Wire shape mirrors the api `AttestationChallengeResponseDto`:
+ * The single-use challenge issued by `POST /api/sdk/attestation/challenge`.
+ * Wire shape mirrors the api `AttestationChallengeResponseDto`:
  * `{ nonce, expiresInSeconds }` (only `nonce` is load-bearing; the SDK does not
  * currently act on the TTL beyond carrying it).
  */
@@ -16,7 +16,7 @@ data class AttriaxAttestationChallenge(
 )
 
 /**
- * Orchestrates the SDK-side device-attestation flow (PARITY §9, rows AT1/AT2;
+ * Orchestrates the SDK-side device-attestation flow (
  * Flutter reference `attriax_attestation_manager.dart:30-91`).
  *
  * Enabled only when [com.attriax.sdk.AttriaxConfig.attestationEnabled] is `true`.
@@ -25,7 +25,7 @@ data class AttriaxAttestationChallenge(
  * assembled envelope map for attachment to the app-open/init request under
  * `attestation`.
  *
- * The whole flow is best-effort and defensive (row AT2 — critical): a disabled
+ * The whole flow is best-effort and defensive (critical): a disabled
  * config, a failed/`null` challenge fetch, a `null` provider result, an
  * unavailable/throwing provider, or ANY thrown error all resolve to `null`, which
  * means the open is sent with NO envelope. Attestation must NEVER block or fail

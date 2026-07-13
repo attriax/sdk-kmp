@@ -5,7 +5,7 @@ import com.attriax.sdk.internal.json.Json
 
 /**
  * Persists the current [AttriaxSessionSnapshot] to a [KeyValueStore] as a small
- * JSON object (PARITY §3, row S5 — "snapshot persisted + revalidated each
+ * JSON object ("snapshot persisted + revalidated each
  * launch"). Mirrors Flutter `AttriaxSessionStore.readSessionSnapshot` /
  * `setSessionSnapshot`, adapted to the SDK's dependency-free [Json] codec.
  *

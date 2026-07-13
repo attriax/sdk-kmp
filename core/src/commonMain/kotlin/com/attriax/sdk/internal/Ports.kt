@@ -48,7 +48,7 @@ class AttriaxTransportException(message: String? = null, cause: Throwable? = nul
 
 /**
  * HTTP transport port. The single long-lived platform implementation stamps the
- * mandatory User-Agent (PARITY §8) on every request and unwraps the `{data:...}`
+ * mandatory User-Agent on every request and unwraps the `{data:.}`
  * envelope. `throws` on non-2xx / timeout / transport failure using the typed
  * exceptions above so the retry policy can classify them.
  */
@@ -75,7 +75,7 @@ interface ConnectivityMonitor {
 }
 
 /**
- * A cancellable, repeating scheduler port (PARITY §3, row S3 heartbeat timers).
+ * A cancellable, repeating scheduler port (heartbeat timers).
  *
  * The pure session-lifecycle manager schedules the heartbeat through this seam so
  * timers stay deterministic in tests (a fake scheduler can fire ticks on
@@ -93,7 +93,7 @@ interface AttriaxScheduler {
     fun schedulePeriodic(intervalMs: Long, action: () -> Unit): ScheduledHandle
 
     /**
-     * Run [action] ONCE after [delayMs] (a coalesced deferred flush; PARITY §7).
+     * Run [action] ONCE after [delayMs] (a coalesced deferred flush).
      * Mirrors the Flutter synchronizer's one-shot `Timer` used by
      * `_scheduleDeferredFlush`: the engine arms a single pending flush after the
      * configured `eventFlushInterval` and re-arms it after it fires; [cancel] on the
@@ -104,8 +104,8 @@ interface AttriaxScheduler {
 }
 
 /**
- * Binds app foreground/background detection to the session lifecycle (PARITY §3,
- * row S3). The engine calls [bind] once its session-lifecycle manager is ready and
+ * Binds app foreground/background detection to the session lifecycle
+ * The engine calls [bind] once its session-lifecycle manager is ready and
  * [unbind] on reset/dispose. The Android implementation registers a
  * `ProcessLifecycleOwner` observer; the pure engine + its tests use a no-op or
  * fake binder and drive the lifecycle manager directly.
@@ -144,7 +144,7 @@ interface DeviceIdSources {
      * Apple `identifierForVendor` (IDFV), or null off-Apple / when unavailable.
      * Defaulted to null so the Android + desktop sources are unchanged; the Apple
      * source (`AttriaxAppleDeviceIdSources`) overrides it. Preferred over the
-     * advertising id in resolution (PARITY §2, iOS branch: IDFV → IDFA → persistent).
+     * advertising id in resolution (iOS branch: IDFV → IDFA → persistent).
      */
     fun iosIdfv(): String? = null
 }

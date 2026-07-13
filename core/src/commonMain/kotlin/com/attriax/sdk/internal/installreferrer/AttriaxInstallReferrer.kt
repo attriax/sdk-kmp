@@ -1,7 +1,7 @@
 package com.attriax.sdk.internal.installreferrer
 
 /**
- * The Google Play install-referrer signal captured at first launch (PARITY §3,
+ * The Google Play install-referrer signal captured at first launch (
  * app-open enrichment). Mirrors the four wire fields the app-open DTO accepts
  * top-level (api `SdkV1OpenDto`): the raw referrer string plus the three Play
  * `ReferrerDetails` timestamps/flags.

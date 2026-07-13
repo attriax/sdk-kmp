@@ -4,8 +4,8 @@ import com.attriax.sdk.internal.AttriaxRevenue
 import com.attriax.sdk.internal.request.AttriaxRequestBuilders
 
 /**
- * Public tracking, revenue, notification, error, and identify surface
- * (PARITY §4, rows E1–E6). Mirrors the Flutter reference `AttriaxTracking`.
+ * Public tracking, revenue, notification, error, and identify surface.
+ * Mirrors the Flutter reference `AttriaxTracking`.
  *
  * Every standardized helper (`recordPurchase`/`recordRefund`/`recordAdRevenue`/
  * `recordAdEvent`/`recordPageView`) LOWERS to [recordEvent] with the reserved
@@ -68,11 +68,11 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
         )
     }
 
-    // -------- revenue (lowered to recordEvent; rows E1/E2/E3) --------
+    // -------- revenue (lowered to recordEvent) --------
 
     /**
-     * Record a completed purchase (row E1). Flushes immediately by default.
-     * Currency is validated `^[A-Z]{3}$` else revenue is forced to `0 USD` (row E3).
+     * Record a completed purchase. Flushes immediately by default.
+     * Currency is validated `^[A-Z]{3}$` else revenue is forced to `0 USD`.
      */
     fun recordPurchase(
         revenue: Double,
@@ -133,7 +133,7 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
     }
 
     /**
-     * Record a refund (row E2): the revenue is NEGATED (`0` preserved as `0`) and
+     * Record a refund: the revenue is NEGATED (`0` preserved as `0`) and
      * tagged `revenueType=refund`. Flushes immediately by default.
      */
     fun recordRefund(
@@ -179,7 +179,7 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
         recordEvent(AttriaxAnalyticsEventKeys.REFUND, eventData = eventData, flushImmediately = flushImmediately)
     }
 
-    /** Record realized ad revenue (row E1). Flushes immediately by default. */
+    /** Record realized ad revenue. Flushes immediately by default. */
     fun recordAdRevenue(
         revenue: Double,
         currency: String = "USD",
@@ -209,7 +209,7 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
         recordEvent(AttriaxAnalyticsEventKeys.AD_REVENUE, eventData = eventData, flushImmediately = flushImmediately)
     }
 
-    /** Record an ad-lifecycle event under its reserved name (row E1). Flushes immediately by default. */
+    /** Record an ad-lifecycle event under its reserved name. Flushes immediately by default. */
     fun recordAdEvent(
         type: AttriaxAdEventType,
         adNetwork: String? = null,
@@ -276,7 +276,7 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
         )
     }
 
-    // -------- notifications (POST /api/sdk/v1/notifications; rows E6) --------
+    // -------- notifications (POST /api/sdk/v1/notifications) --------
 
     fun recordNotification(
         type: AttriaxNotificationEventType,
@@ -312,7 +312,7 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
             metadata = mergedMetadata,
         )
         // Notifications are event-family signals: first-launch eager flush applies
-        // (PARITY — Flutter recordNotification `_shouldFlushEventImmediately`).
+        // (Flutter recordNotification `_shouldFlushEventImmediately`).
         engine.enqueueRequest(request, flushImmediately = engine.shouldFlushEventImmediately(flushImmediately))
     }
 
@@ -447,7 +447,7 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
 
     /**
      * Register (or, with a null token, de-register) the Apple APNs uninstall-tracking
-     * token (PARITY — Flutter `AttriaxTracking.registerApplePushToken`,
+     * token (Flutter `AttriaxTracking.registerApplePushToken`,
      * `attriax_tracking.dart:299-302`). Same wire as
      * [registerFirebaseMessagingToken] with `provider = "apns"`. The APNs token is
      * supplied by the host wrapper / iOS layer; sending it off-iOS is harmless (the
@@ -491,7 +491,7 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
             clearExternalUser = clearExternalUser,
             clearPropertyKeys = clearPropertyKeys,
             clearAllProperties = clearAllProperties,
-            // CCPA (Epic 10.1) rides identify TOP-LEVEL, same resolvers as the app-open.
+            // CCPA rides identify TOP-LEVEL, same resolvers as the app-open.
             doNotSell = engine.resolveDoNotSellWire(),
             usPrivacy = engine.resolveUsPrivacyWire(),
         )
@@ -501,7 +501,7 @@ class AttriaxTracking internal constructor(private val engine: Attriax) {
     private fun projectToken(): String = engine.projectTokenForTracking
 
     /**
-     * Validate [currency] and warn on the invalid → 0 USD default (row E3). The
+     * Validate [currency] and warn on the invalid → 0 USD default. The
      * pure normalization lives in [AttriaxRevenue]; the warning is the only side
      * effect kept here so the lowering stays JVM-testable.
      */

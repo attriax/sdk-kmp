@@ -20,7 +20,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 /**
- * PARITY §3 (app-open install-referrer enrichment) driven through the REAL
+ * (app-open install-referrer enrichment) driven through the REAL
  * [Attriax] engine with a fake Play provider. Proves the four wire fields reach
  * the `/open` body on first launch, that the raw referrer is persisted + re-
  * attached (without timestamps) on the next launch, and that the Unavailable

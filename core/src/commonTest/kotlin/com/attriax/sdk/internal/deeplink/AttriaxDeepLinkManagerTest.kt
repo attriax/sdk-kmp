@@ -9,7 +9,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Deep-link manager tests (PARITY §6, rows DL1–DL4): 2s dedup window, deferred
+ * Deep-link manager tests: 2s dedup window, deferred
  * fire-once + persisted flag, and waitForInitialDeepLink resolution.
  */
 class AttriaxDeepLinkManagerTest {

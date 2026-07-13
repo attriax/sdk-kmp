@@ -1,7 +1,7 @@
 package com.attriax.sdk.internal.consent
 
 /**
- * Local GDPR consent state for the current SDK device (PARITY §5, row C1).
+ * Local GDPR consent state for the current SDK device.
  *
  * Mirrors the Flutter reference `AttriaxGdprConsentState`
  * (`attriax_consent.dart:6-18`). Four states drive the whole capture/identity
@@ -22,7 +22,7 @@ enum class AttriaxGdprConsentState {
 }
 
 /**
- * Category-level GDPR consent values (row C1): three independent booleans.
+ * Category-level GDPR consent values: three independent booleans.
  *
  * * [analytics] — analytics, session, crash, and diagnostic tracking.
  * * [attribution] — attribution, install referrer, deep-link attribution, identity.
@@ -35,7 +35,7 @@ data class AttriaxGdprConsentValues(
 )
 
 /**
- * The distinct signal families the consent policy reasons about (row C4).
+ * The distinct signal families the consent policy reasons about.
  * Mirrors the Flutter `AttriaxTrackingSignal` enum.
  */
 enum class AttriaxTrackingSignal {
@@ -88,7 +88,7 @@ data class AttriaxTrackingDecision(
 }
 
 /**
- * Wire-value mapping for [AttriaxGdprConsentState] (PARITY §5, row C2).
+ * Wire-value mapping for [AttriaxGdprConsentState].
  *
  * The api `AppUserGdprConsentState` enum (app-user-gdpr-consent.entity.ts:13-18)
  * uses snake_case string values — critically `not_required`, NOT `notRequired`.

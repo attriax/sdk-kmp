@@ -1,7 +1,7 @@
 package com.attriax.sdk
 
 /**
- * SKAdNetwork (SKAN) helpers exposed as `attriax.skan` (Epic 8.5).
+ * SKAdNetwork (SKAN) helpers exposed as `attriax.skan`.
  *
  * Mirrors the Flutter reference `AttriaxSkan` (`attriax_skan.dart:11`): a [state]
  * getter over the locally tracked SKAN state and a manual [updateConversionValue].
@@ -28,7 +28,7 @@ class AttriaxSkan internal constructor(private val engine: Attriax) {
     val state: AttriaxSkanState? get() = engine.skanState
 
     /**
-     * Manually update the current SKAdNetwork conversion value (Epic 8.5).
+     * Manually update the current SKAdNetwork conversion value.
      *
      * Mirrors `AttriaxSkan.updateConversionValue`. The [fineValue] (0..63) is applied
      * MONOTONICALLY (it never decreases); [coarseValue] defaults to the value derived

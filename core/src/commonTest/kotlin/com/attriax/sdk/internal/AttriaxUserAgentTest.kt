@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** PARITY row W2 — real, stable User-Agent with the mandatory parenthetical suffix. */
+/** real, stable User-Agent with the mandatory parenthetical suffix. */
 class AttriaxUserAgentTest {
 
     @Test

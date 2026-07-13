@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** PARITY rows S2 (continuation window math) + S3 (lifecycle kinds). */
+/** Continuation window math + lifecycle kinds. */
 class AttriaxSessionContinuationTest {
 
     private val ctx = AttriaxSessionContext(

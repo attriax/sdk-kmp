@@ -17,9 +17,9 @@ import kotlin.test.assertTrue
 
 /**
  * Flush-scheduling coverage for the two DEAD config knobs made live:
- *  - periodic (deferred, coalesced) flush over `eventFlushIntervalMs` (PARITY §7,
+ * - periodic (deferred, coalesced) flush over `eventFlushIntervalMs` (
  *    Flutter synchronizer `_scheduleDeferredFlush`),
- *  - first-launch eager flush over `flushEventsImmediatelyOnFirstLaunch` (PARITY,
+ * - first-launch eager flush over `flushEventsImmediatelyOnFirstLaunch` (
  *    Flutter tracking-manager `_shouldFlushEventImmediately`).
  *
  * Driven through the real [Attriax] engine with a controllable [FakeScheduler]

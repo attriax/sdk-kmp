@@ -1,7 +1,7 @@
 package com.attriax.sdk
 
 /**
- * SKAdNetwork coarse conversion value (Epic 8.5 / Epic 12 CV modeling).
+ * SKAdNetwork coarse conversion value.
  *
  * Mirrors the Flutter reference `AttriaxSkanCoarseValue`
  * (`attriax_flutter_platform_interface/lib/src/types.dart:76`). The [wireValue]s
@@ -16,7 +16,7 @@ enum class AttriaxSkanCoarseValue(val wireValue: String) {
 }
 
 /**
- * Outcome of a SKAdNetwork conversion-value update (Epic 8.5).
+ * Outcome of a SKAdNetwork conversion-value update.
  *
  * Mirrors the Flutter reference `AttriaxSkanUpdateStatus`
  * (`types.dart` enum) 1:1; [wireValue]s are the snake_case strings Flutter emits
@@ -36,7 +36,7 @@ enum class AttriaxSkanUpdateStatus(val wireValue: String) {
 }
 
 /**
- * Result of [AttriaxSkan.updateConversionValue] (Epic 8.5).
+ * Result of [AttriaxSkan.updateConversionValue].
  *
  * Mirrors the Flutter reference `AttriaxSkanUpdateResult`
  * (`types_skan.dart:470`) — the public-facing subset: the resolved [status], an
@@ -54,7 +54,7 @@ data class AttriaxSkanUpdateResult(
 )
 
 /**
- * Locally tracked SKAdNetwork state (Epic 8.5) — the passthrough subset.
+ * Locally tracked SKAdNetwork state — the passthrough subset.
  *
  * Mirrors the public-facing fields of the Flutter reference `AttriaxSkanState`
  * (`types_skan.dart:337`): whether SKAN is [enabled] plus the monotonic
@@ -72,7 +72,7 @@ data class AttriaxSkanState(
 )
 
 /**
- * SKAdNetwork configuration knob (Epic 8.5).
+ * SKAdNetwork configuration knob.
  *
  * Mirrors the Flutter reference `AttriaxSkanConfig`
  * (`types_skan.dart:3`): [enabled] (default `true`) gates on-device conversion-value

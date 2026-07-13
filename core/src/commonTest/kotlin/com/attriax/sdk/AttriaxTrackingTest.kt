@@ -17,7 +17,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * End-to-end lowering coverage (PARITY rows E1/E2/E3/E6 + identify) driven
+ * End-to-end lowering coverage (events, revenue, notifications + identify) driven
  * through the real [Attriax] engine with fakes. The engine's flush + consent
  * executors are synchronous fakes so every enqueue/flush completes inline and the
  * queued request bodies are inspected deterministically via a second

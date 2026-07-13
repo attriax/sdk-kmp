@@ -6,7 +6,7 @@ import com.attriax.sdk.internal.request.AttriaxEndpoints
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** PARITY row O2 — app-open hoisted to the front of every flush, order otherwise stable. */
+/** app-open hoisted to the front of every flush, order otherwise stable. */
 class AttriaxAppOpenHoistTest {
 
     private fun queued(id: String, kind: String) = AttriaxQueuedRequest(

@@ -4,7 +4,7 @@ import com.attriax.sdk.internal.KeyValueStore
 import com.attriax.sdk.internal.attriaxSleep
 
 /**
- * Play install-referrer capture policy (PARITY §3 — app-open enrichment).
+ * Play install-referrer capture policy (app-open enrichment).
  *
  * Mirrors the Flutter reference `AttriaxContextInstallReferrer`:
  *  - **cache-first**: once a non-empty referrer has been resolved it is persisted

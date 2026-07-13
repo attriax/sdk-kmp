@@ -3,12 +3,12 @@ package com.attriax.sdk.internal.request
 import com.attriax.sdk.internal.AttriaxContextSnapshot
 
 /**
- * Pure builders that assemble the JSON body maps for the core request kinds
- * (PARITY §3/§4, rows E4/E5). Field placement matters:
+ * Pure builders that assemble the JSON body maps for the core request kinds.
+ * Field placement matters:
  *  - event/user payloads OMIT platform/version by design (backend derives from
  *    AppUser); open/session carry the full context.
  *  - identity fields (`projectToken`/`deviceId`/`deviceIdSource`) are stamped at
- *    BUILD time and frozen (row D3) — never re-stamped at flush.
+ * BUILD time and frozen — never re-stamped at flush.
  */
 object AttriaxRequestBuilders {
 
@@ -92,11 +92,11 @@ object AttriaxRequestBuilders {
         referrerClickTimestampSeconds?.let { body["referrerClickTimestampSeconds"] = it }
         googlePlayInstantParam?.let { body["googlePlayInstantParam"] = it }
         attestation?.let { body["attestation"] = it }
-        // ATT status (Epic 8.5) is TOP-LEVEL like `attestation` (NOT nested under
+        // ATT status is TOP-LEVEL like `attestation` (NOT nested under
         // `device`). The caller passes the already-resolved wire string or null;
         // absent (UNKNOWN/omitted) → not emitted.
         attStatus?.let { body["attStatus"] = it }
-        // CCPA (Epic 10.1) is TOP-LEVEL like `attStatus` (NOT nested under `device`).
+        // CCPA is TOP-LEVEL like `attStatus` (NOT nested under `device`).
         // `doNotSell` null → OMIT; an explicit true/false is EMITTED (a deliberate
         // false may clear a prior server-side latch). `usPrivacy` null/blank → OMIT;
         // else EMITTED, defensively capped at 16 chars (the DTO's @MaxLength(16)).
@@ -106,7 +106,7 @@ object AttriaxRequestBuilders {
     }
 
     /**
-     * Event (`/api/sdk/v1/events`). platform/version OMITTED (row E4). Identity
+     * Event (`/api/sdk/v1/events`). platform/version OMITTED. Identity
      * (`deviceId`/`deviceIdSource`) is nullable to support anonymous capture, but
      * batching requires it present.
      */
@@ -139,7 +139,7 @@ object AttriaxRequestBuilders {
      * `attriaxBuildTrackSessionRequest`: identity is nullable for anonymous capture,
      * `sessionRelativeTimeMs` is the clamped ms-since-start, and the app/device/sdk
      * context is carried inline (open/session/crash carry context; event/user omit
-     * it — row E4). Absent optionals are OMITTED rather than sent as null.
+     * it). Absent optionals are OMITTED rather than sent as null.
      */
     fun buildSession(
         projectToken: String,
@@ -180,7 +180,7 @@ object AttriaxRequestBuilders {
     }
 
     /**
-     * User/identify (`/api/sdk/v1/users`). platform/version OMITTED (row E4).
+     * User/identify (`/api/sdk/v1/users`). platform/version OMITTED.
      * Wire field names match the api SdkUserDto: `externalUserId`/`externalUserName`/
      * `properties` (NOT userId/userProperties), and there is NO `clientOccurredAt`
      * on this DTO (the backend rejects unknown properties). The richer identify
@@ -213,7 +213,7 @@ object AttriaxRequestBuilders {
         properties?.let { body["properties"] = it }
         clearPropertyKeys?.takeIf { it.isNotEmpty() }?.let { body["clearPropertyKeys"] = it }
         if (clearAllProperties) body["clearAllProperties"] = true
-        // CCPA (Epic 10.1) TOP-LEVEL, same omit/cap rules as buildOpen (SdkUserDto
+        // CCPA TOP-LEVEL, same omit/cap rules as buildOpen (SdkUserDto
         // carries `doNotSell`/`usPrivacy` too). Unknown props are rejected, so absent
         // values are OMITTED rather than sent as null.
         doNotSell?.let { body["doNotSell"] = it }
@@ -347,7 +347,7 @@ object AttriaxRequestBuilders {
      * `source`/`sessionId`/`sessionRelativeTimeMs`/`isFirstLaunch`/`metadata`.
      * Unknown props are rejected by whitelist validation, so absent optionals are
      * OMITTED rather than sent as null. Identity is nullable to support anonymous
-     * deep-link diagnostics while consent is pending (PARITY §5/§6).
+     * deep-link diagnostics while consent is pending.
      */
     fun buildResolveDeepLink(
         projectToken: String,
@@ -457,7 +457,7 @@ object AttriaxRequestBuilders {
     }
 
     /**
-     * Apple Search Ads (AdServices) token capture body (Epic 8.5) — mirrors the api
+     * Apple Search Ads (AdServices) token capture body — mirrors the api
      * FROZEN CONTRACT `POST /api/sdk/v1/asa/token` `{ projectToken, token }` exactly
      * (`SdkAsaTokenDto`). No other fields; field names must not change.
      */

@@ -1,7 +1,7 @@
 package com.attriax.sdk.internal
 
 /**
- * Persists the resolved device identity (PARITY §2, rows D1/D2/D4;
+ * Persists the resolved device identity (
  * Flutter `attriax_preferences_store.dart:231-232`).
  *
  * Keys `attriax.device_id` / `attriax.device_id_source`. The fallback id is

@@ -14,11 +14,11 @@ import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 
 /**
- * The flush engine (PARITY §3/§7). Combines:
- *  - app-open-first hoist (row O2),
- *  - consecutive-identity batch grouping + limits + binary split (rows Q5/Q6/E5),
+ * The flush engine. Combines:
+ * - app-open-first hoist,
+ * - consecutive-identity batch grouping + limits + binary split,
  *  - single-send fallback,
- *  - retry marking / backoff / terminal drop (rows Q2/Q3/Q4),
+ * - retry marking / backoff / terminal drop,
  *  - single-flight flush.
  *
  * Transport failures are classified into [AttriaxFailure] so the retry policy
@@ -31,12 +31,12 @@ class AttriaxDispatcher(
     /**
      * Notified with the (envelope-unwrapped) response when a SINGLE-SEND request is
      * delivered (2xx). Used by the app-open handler to recover the deferred deep
-     * link and by deep-link resolves to emit the resolved event (PARITY §6). Not
+     * link and by deep-link resolves to emit the resolved event. Not
      * invoked for batched items (open + deep-link resolve are both non-batchable).
      */
     private val onDelivered: ((AttriaxQueuedRequest, com.attriax.sdk.internal.HttpResponse) -> Unit)? = null,
     /**
-     * Session keep-alive injection (PARITY §4, row S4). Given the group of queued
+     * Session keep-alive injection. Given the group of queued
      * requests forming a batch, returns a synthetic session keep-alive to APPEND to
      * that batch (or null to inject none). It is appended to the transport payload
      * only — it is NOT persisted in the queue, so a re-queue on failure never

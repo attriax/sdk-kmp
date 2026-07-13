@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
 
 /**
  * Privacy-correctness parity for the referrer query API when attribution consent is
- * revoked (PARITY — referrer / GDPR). Mirrors the Flutter reference
+ * revoked (referrer / GDPR). Mirrors the Flutter reference
  * `attriax_runtime.dart:976`, which calls
  * `AttriaxReferrerManager.prepareForDeniedAttributionState()` in the else branch of
  * the active runtime state when attribution is denied: the persisted original /
@@ -116,7 +116,7 @@ class AttriaxReferrerConsentEngineTest {
     private fun grantAttributionAndCaptureReferrers(store: MapStore): Attriax {
         val sdk = engine(store)
         // Attribution granted → the app-open buffered at init flushes + delivers,
-        // persisting the original/reinstall attribution records (PARITY — referrer).
+        // persisting the original/reinstall attribution records (referrer).
         sdk.consent.gdpr.setConsent(analytics = true, attribution = true, adEvents = false)
 
         assertNotNull(sdk.referrer.getOriginalInstallReferrer(), "original referrer must be captured")

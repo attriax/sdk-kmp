@@ -1,7 +1,7 @@
 package com.attriax.sdk
 
 /**
- * Public referrer-query surface exposed as `attriax.referrer` (PARITY — referrer
+ * Public referrer-query surface exposed as `attriax.referrer` (referrer
  * query API). Mirrors the Flutter reference `AttriaxReferrer`
  * (`attriax_referrer.dart`): startup attribution snapshots plus runtime deep-link
  * referrers.

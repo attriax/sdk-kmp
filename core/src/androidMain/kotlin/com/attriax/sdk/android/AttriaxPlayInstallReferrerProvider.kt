@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Google Play Install Referrer provider (PARITY §3 — app-open enrichment).
+ * Google Play Install Referrer provider (app-open enrichment).
  *
  * This is the ONLY place the real `com.android.installreferrer` API is touched,
  * keeping the capture policy

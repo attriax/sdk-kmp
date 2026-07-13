@@ -19,7 +19,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Engine-level consent gating (PARITY §5, rows C4/C5): the consent policy is
+ * Engine-level consent gating: the consent policy is
  * wired into the tracking enqueue path (anonymous capture / withhold / defer) and
  * the three-pass queue reconciliation runs on a consent state change. The consent
  * + flush executors are synchronous fakes, so the reconciliation + flush that a
@@ -135,7 +135,7 @@ class AttriaxConsentEngineTest {
     private fun events(store: MapStore): List<AttriaxApiRequest> =
         queued(store).filter { it.kind == AttriaxApiRequest.KIND_TRACK_EVENT }
 
-    // -------- row C4: anonymous capture while waiting --------
+    // -------- anonymous capture while waiting --------
 
     @Test
     fun analyticsEventWhileWaitingWithAnonymousOnIsEnqueuedWithoutDeviceIdentity() {
@@ -162,7 +162,7 @@ class AttriaxConsentEngineTest {
         )
     }
 
-    // -------- row C5: three-pass reconciliation on resolution --------
+    // -------- three-pass reconciliation on resolution --------
 
     @Test
     fun grantingAnalyticsIdentifiesAPreviouslyAnonymousQueuedEvent() {

@@ -6,7 +6,7 @@ import platform.windows.SW_SHOWNORMAL
 import platform.windows.ShellExecuteW
 
 /**
- * Windows-native browser open (PARITY §6). Asks the shell to `open` the URL with its
+ * Windows-native browser open. Asks the shell to `open` the URL with its
  * default handler via `ShellExecuteW` (shell32, already linked by
  * `platform.windows`). The `platform.windows` binding exposes the `LPCWSTR`
  * parameters as `String?`, marshalling the (http/https-validated) URL to UTF-16

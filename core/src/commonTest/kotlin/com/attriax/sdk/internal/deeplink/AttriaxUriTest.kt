@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Pure URI parser tests backing the deep-link core (PARITY §6). */
+/** Pure URI parser tests backing the deep-link core. */
 class AttriaxUriTest {
 
     @Test

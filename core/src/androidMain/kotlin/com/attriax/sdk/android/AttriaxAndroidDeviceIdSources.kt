@@ -5,7 +5,7 @@ import android.provider.Settings
 import com.attriax.sdk.internal.DeviceIdSources
 
 /**
- * [DeviceIdSources] backed by the Android platform (PARITY §2, row D4).
+ * [DeviceIdSources] backed by the Android platform.
  *
  *  - `androidSsaid()` reads Settings.Secure ANDROID_ID (SSAID).
  *  - `advertisingId()` returns null unless [collectAdvertisingId] is true AND a

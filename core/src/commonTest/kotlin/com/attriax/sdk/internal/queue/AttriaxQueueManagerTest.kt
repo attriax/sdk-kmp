@@ -7,7 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** PARITY row Q1 — persistence + FIFO overflow eviction beyond maxQueueSize. */
+/** persistence + FIFO overflow eviction beyond maxQueueSize. */
 class AttriaxQueueManagerTest {
 
     private class MapStore : KeyValueStore {

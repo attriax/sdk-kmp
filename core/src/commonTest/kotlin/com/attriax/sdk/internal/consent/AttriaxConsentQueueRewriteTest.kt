@@ -9,8 +9,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Coverage for the three consent-resolution queue-rewrite passes (PARITY §5,
- * row C5): (1) identify anonymous requests, (2) anonymize denied-category
+ * Coverage for the three consent-resolution queue-rewrite passes
+ * (1) identify anonymous requests, (2) anonymize denied-category
  * requests, (3) discard now-disallowed requests. Exercises the pure predicate
  * policy [AttriaxConsentQueuePolicy] + the body-map rewrites
  * [AttriaxConsentRequestRewrites].

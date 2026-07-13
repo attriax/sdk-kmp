@@ -21,7 +21,7 @@ import com.attriax.sdk.internal.session.AttriaxSessionLifecycleManager
  *
  *  - [AttriaxAppleUserDefaultsStore] durable suite-scoped NSUserDefaults persistence,
  *  - the single long-lived [AttriaxAppleUrlSessionHttpClient] (NSURLSession) stamped
- *    with the mandatory REAL WKWebView Safari User-Agent (PARITY §8; see
+ * with the mandatory REAL WKWebView Safari User-Agent (see
  *    [AttriaxAppleUserAgent] — wrapper-supplied first, else a live probe / Safari
  *    fallback, never a synthetic slug),
  *  - [AttriaxAppleConnectivityMonitor] (NWPathMonitor) for the offline→online

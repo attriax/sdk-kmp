@@ -16,17 +16,19 @@ import com.attriax.sdk.internal.AttriaxDeviceIdentityStore
 import com.attriax.sdk.internal.AttriaxUserAgent
 import java.util.Locale
 import java.util.TimeZone
+import com.attriax.sdk.android.AttriaxPlayInstallReferrerProvider
+import com.attriax.sdk.android.AttriaxAndroidBrowserOpener
 
 /**
- * Factory for the Attriax Android SDK (Epic 9.2 — standalone Kotlin core).
+ * Factory for the Attriax Android SDK.
  *
  * [create] assembles a fully-wired [Attriax] runtime from an Android [Context]:
  * SharedPreferences persistence, the single long-lived OkHttp transport stamped
- * with the mandatory real User-Agent (PARITY §8), connectivity monitoring, and
+ * with the mandatory real User-Agent, connectivity monitoring, and
  * the device-identity resolver.
  */
 object AttriaxSdk {
-    /** SDK release version (mirrors the Flutter reference; PARITY row I3). */
+    /** SDK release version (mirrors the Flutter reference). */
     const val VERSION: String = AttriaxVersion.PACKAGE_VERSION
 
     /**
@@ -72,13 +74,13 @@ object AttriaxSdk {
             context = snapshot,
             deviceIdentityStore = deviceIdentityStore,
             // Session heartbeat timer runs off the main thread; foreground/background
-            // detection is bound via ProcessLifecycleOwner (PARITY §3, row S3).
+            // detection is bound via ProcessLifecycleOwner.
             scheduler = AttriaxExecutorScheduler(),
-            // Google Play install-referrer capture (PARITY §3). Always injected; the
+            // Google Play install-referrer capture. Always injected; the
             // engine/coordinator gates on config.installReferrerEnabled and degrades
             // silently on non-Play builds where the client is unavailable.
             installReferrerProvider =
-                com.attriax.sdk.android.AttriaxPlayInstallReferrerProvider(appContext),
+                AttriaxPlayInstallReferrerProvider(appContext),
             lifecycleBinderFactory = { lifecycleManager ->
                 val observer = AttriaxProcessLifecycleObserver(lifecycleManager)
                 object : AttriaxLifecycleBinder {
@@ -86,9 +88,9 @@ object AttriaxSdk {
                     override fun unbind() = observer.unregister()
                 }
             },
-            // Deep-link browser-fallback opener (PARITY §6). Gated by the engine on
+            // Deep-link browser-fallback opener. Gated by the engine on
             // config.automaticBrowserHandling; fires an ACTION_VIEW intent.
-            browserOpener = com.attriax.sdk.android.AttriaxAndroidBrowserOpener(appContext),
+            browserOpener = AttriaxAndroidBrowserOpener(appContext),
         )
     }
 

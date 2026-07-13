@@ -10,7 +10,7 @@ import com.attriax.sdk.AttriaxAttStatus
  * returns [AttriaxAttStatus.UNKNOWN] — the engine then OMITS `attStatus` from the
  * app-open unless a wrapper supplied a real status.
  *
- * iosMain actual (deferred to Mac): map `ATTrackingManager.trackingAuthorizationStatus`
+ * iosMain actual: map `ATTrackingManager.trackingAuthorizationStatus`
  * (authorized/denied/restricted/notDetermined) → [AttriaxAttStatus]; any other →
  * UNKNOWN.
  */
@@ -25,7 +25,7 @@ internal expect fun attriaxAttStatus(): AttriaxAttStatus
  * the main thread. On android/jvm/native ATT does not exist, so this is a no-op
  * that returns [AttriaxAttStatus.UNKNOWN] immediately.
  *
- * iosMain actual (deferred to Mac): call
+ * iosMain actual: call
  * `ATTrackingManager.requestTrackingAuthorization(completionHandler:)`, bridge the
  * async completion back to a blocking result honoring [timeoutMs], and map the
  * resolved status → [AttriaxAttStatus].

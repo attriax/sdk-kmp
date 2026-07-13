@@ -15,7 +15,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Engine-level referrer query API (PARITY — referrer query API). Exercises each
+ * Engine-level referrer query API. Exercises each
  * public `attriax.referrer` getter against its real backing source: the persisted
  * raw Play referrer, the attribution records the app-open RESPONSE returns and the
  * engine persists, and the session / latest deep-link referrers captured from the

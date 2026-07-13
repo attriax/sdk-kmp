@@ -1,7 +1,7 @@
 package com.attriax.sdk
 
 /**
- * SDK version constants (PARITY §1 / row I3).
+ * SDK version constants.
  *
  * Mirrors the Flutter reference `types.dart:8-9`:
  *   attriaxSdkApiVersion = 'v1'

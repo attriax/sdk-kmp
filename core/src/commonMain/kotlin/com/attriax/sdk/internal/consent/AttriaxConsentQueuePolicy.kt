@@ -5,7 +5,7 @@ import com.attriax.sdk.AttriaxAnalyticsEventKeys
 import com.attriax.sdk.internal.request.AttriaxApiRequest
 
 /**
- * Pure queue-rewrite predicate policy for consent resolution (PARITY §5, row C5).
+ * Pure queue-rewrite predicate policy for consent resolution.
  *
  * Mirrors the Flutter reference `AttriaxConsentQueuePolicy`
  * (`internal/consent/attriax_consent_queue_policy.dart`). Answers the three

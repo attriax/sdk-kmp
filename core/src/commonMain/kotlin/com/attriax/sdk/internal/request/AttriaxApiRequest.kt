@@ -1,6 +1,6 @@
 package com.attriax.sdk.internal.request
 
-/** Wire endpoint paths (PARITY §8, row W1). */
+/** Wire endpoint paths. */
 object AttriaxEndpoints {
     const val OPEN = "/api/sdk/v1/open"
     const val EVENTS = "/api/sdk/v1/events"
@@ -20,12 +20,12 @@ object AttriaxEndpoints {
     const val CONFIG = "/api/sdk/v1/config"
     const val ATTESTATION_CHALLENGE = "/api/sdk/attestation/challenge"
 
-    /** Apple Search Ads (AdServices) token capture — FROZEN CONTRACT (Epic 8.5). */
+    /** Apple Search Ads (AdServices) token capture — FROZEN CONTRACT. */
     const val ASA_TOKEN = "/api/sdk/v1/asa/token"
 }
 
 /**
- * An outbound SDK request modeled as a kind + a JSON body map (PARITY §7/§8).
+ * An outbound SDK request modeled as a kind + a JSON body map.
  *
  * Deliberately data-driven rather than a class-per-endpoint: the engine only
  * needs the kind name (persisted queue tag / dispatch key), the HTTP path, and
@@ -52,10 +52,10 @@ data class AttriaxApiRequest(
             else -> false
         }
 
-    /** True for the app-open request (hoisted to the front of every flush; row O2). */
+    /** True for the app-open request (hoisted to the front of every flush). */
     val isAppOpen: Boolean get() = kind == KIND_OPEN
 
-    /** Deep-link resolves are exempt from the terminal-drop retry policy (row DL5/Q4). */
+    /** Deep-link resolves are exempt from the terminal-drop retry policy. */
     val isTerminalDropExempt: Boolean get() = kind == KIND_RESOLVE_DEEP_LINK
 
     /** The batch item kind name for this request (`event`/`session`/`user`). */
@@ -78,7 +78,7 @@ data class AttriaxApiRequest(
         const val KIND_CREATE_DYNAMIC_LINK = "createDynamicLink"
         const val KIND_REGISTER_UNINSTALL_TOKEN = "registerUninstallToken"
 
-        /** Legacy queue-kind alias for `user` (row FR1). */
+        /** Legacy queue-kind alias for `user`. */
         const val LEGACY_KIND_IDENTIFY = "identify"
 
         const val FIELD_PROJECT_TOKEN = "projectToken"

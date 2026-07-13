@@ -12,7 +12,7 @@ import platform.linux.getifaddrs
 import platform.linux.ifaddrs
 
 /**
- * Linux-native connectivity probe (PARITY §7). Enumerates interfaces via
+ * Linux-native connectivity probe. Enumerates interfaces via
  * `getifaddrs` (bound in `platform.linux`) and reports connected when any
  * non-loopback interface is UP and RUNNING (carrier present) with a bound address.
  * Purely local (no reachability round trip). Any failure — including `getifaddrs`

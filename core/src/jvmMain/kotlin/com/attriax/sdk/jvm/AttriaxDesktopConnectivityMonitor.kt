@@ -9,7 +9,7 @@ import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
 /**
- * JVM-desktop [ConnectivityMonitor] (PARITY §7 — connectivity-restore re-flush).
+ * JVM-desktop [ConnectivityMonitor] (connectivity-restore re-flush).
  *
  * The JDK has no push callback equivalent to Android's `ConnectivityManager`, so this
  * detects connectivity by polling [NetworkInterface]: the host is "connected" when at
@@ -73,7 +73,7 @@ class AttriaxDesktopConnectivityMonitor(
         val restored = synchronized(this) {
             val wasConnected = lastConnected
             lastConnected = nowConnected
-            // Fire only on the offline → online edge (PARITY §7 restore re-flush).
+            // Fire only on the offline → online edge (restore re-flush).
             !wasConnected && nowConnected
         }
         if (restored) {

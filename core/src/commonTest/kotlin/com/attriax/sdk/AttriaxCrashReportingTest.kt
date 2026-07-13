@@ -22,7 +22,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Automatic crash reporting coverage (PARITY §4 — Flutter
+ * Automatic crash reporting coverage (Flutter
  * `AttriaxCrashReportingManager`). Driven through the real [Attriax] engine with the
  * same fakes the tracking/flush tests use, plus a [FakeUncaughtInstaller] that
  * captures the `onFatalCrash` callback so the OS-handler path is exercised WITHOUT
@@ -144,7 +144,7 @@ class AttriaxCrashReportingTest {
         store.putString(AttriaxCrashReportingManager.KEY_PENDING_CRASH, Json.encode(request.body))
     }
 
-    // -------- replay-on-init (PARITY — _replayPendingCrashReport) --------
+    // -------- replay-on-init (_replayPendingCrashReport) --------
 
     @Test
     fun initReplaysPendingCrashOnceAndClearsRecord() {

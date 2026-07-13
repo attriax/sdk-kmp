@@ -22,7 +22,7 @@ sealed interface AttriaxFailure {
 }
 
 /**
- * Retry / backoff / terminal-drop policy (PARITY §7, rows Q2/Q3/Q4;
+ * Retry / backoff / terminal-drop policy (
  * Flutter `dispatch/request_retry_policy.dart`).
  *
  *  - Retryable: HTTP 408/425/429/≥500, plus timeout & transport errors.
@@ -105,7 +105,7 @@ object AttriaxRetryPolicy {
 
     /**
      * Terminal-drop reason for a queued request, or null if it should stay queued.
-     * Deep-link resolves are exempt from terminal drop (row DL5).
+     * Deep-link resolves are exempt from terminal drop.
      */
     fun terminalDropReason(request: AttriaxApiRequest, attemptCount: Int, createdAtMs: Long, nowMs: Long): String? {
         if (request.isTerminalDropExempt) return null

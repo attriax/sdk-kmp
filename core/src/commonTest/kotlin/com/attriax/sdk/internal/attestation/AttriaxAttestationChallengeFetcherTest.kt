@@ -10,7 +10,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 /**
- * PARITY §8/§9 — the challenge fetcher over the [HttpClient] port. Grounds the
+ * the challenge fetcher over the [HttpClient] port. Grounds the
  * challenge parse against the api `AttestationChallengeResponseDto`
  * (`{ nonce, expiresInSeconds }`). Fake transport → no device/network.
  */
@@ -35,7 +35,7 @@ class AttriaxAttestationChallengeFetcherTest {
 
         assertEquals("server_nonce", challenge!!.nonce)
         assertEquals(120, challenge.expiresInSeconds)
-        // Hits the exact challenge endpoint path (PARITY row W1 / §9).
+        // Hits the exact challenge endpoint path.
         assertEquals(AttriaxEndpoints.ATTESTATION_CHALLENGE, transport.posts.single().first)
     }
 
@@ -79,7 +79,7 @@ class AttriaxAttestationChallengeFetcherTest {
 
     /**
      * A transport-thrown HTTP error (e.g. challenge outage → 5xx) PROPAGATES from
-     * the fetcher; the manager's own catch turns it into "no envelope" (row AT2).
+     * the fetcher; the manager's own catch turns it into "no envelope".
      * This documents the boundary: the fetcher never breaks init only because the
      * manager wraps it.
      */

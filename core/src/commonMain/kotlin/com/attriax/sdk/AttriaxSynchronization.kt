@@ -1,7 +1,7 @@
 package com.attriax.sdk
 
 /**
- * Runtime synchronization state exposed from the SDK (PARITY — observability).
+ * Runtime synchronization state exposed from the SDK (observability).
  *
  * Mirrors the Flutter reference `AttriaxSynchronizationState`
  * (`attriax_flutter_platform_interface/lib/src/types.dart:46-54`) exactly, driven
@@ -36,7 +36,7 @@ fun interface AttriaxSynchronizationStateListener {
 }
 
 /**
- * Public synchronization surface exposed as `attriax.synchronization` (PARITY —
+ * Public synchronization surface exposed as `attriax.synchronization` (
  * observability). Mirrors the Flutter reference `AttriaxSynchronization`
  * (`attriax_synchronization.dart`): [isSynchronized] + [state] snapshots plus a
  * stream-free observable via [addStateListener]/[removeStateListener].

@@ -13,7 +13,7 @@ import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 
 /**
- * Backs the public `attriax.referrer` query API (PARITY — referrer query API).
+ * Backs the public `attriax.referrer` query API.
  * Mirrors the Flutter reference `AttriaxReferrerManager`
  * (`internal/attriax_referrer_manager.dart`), adapted to the engine's plain-thread
  * / listener model (no completers/streams).

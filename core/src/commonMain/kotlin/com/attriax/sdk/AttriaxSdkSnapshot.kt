@@ -1,7 +1,7 @@
 package com.attriax.sdk
 
 /**
- * SDK version + metadata snapshot exposed by [Attriax.sdkSnapshot] (PARITY §1).
+ * SDK version + metadata snapshot exposed by [Attriax.sdkSnapshot].
  * Mirrors the Flutter reference `AttriaxSdkSnapshot`
  * (attriax_flutter_platform_interface types_platform_runtime.dart:149-165):
  * `apiVersion`, `packageVersion`, and the SDK `metadata` block (default empty).

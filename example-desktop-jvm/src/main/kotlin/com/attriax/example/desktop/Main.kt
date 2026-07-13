@@ -92,7 +92,7 @@ fun main() {
     attriax.consent.gdpr.setConsent(analytics = true, attribution = true, adEvents = false)
     println("[attriax] GDPR consent state -> ${attriax.consent.gdpr.state}")
 
-    // 8. Desktop browser-open (PARITY §6 — deep-link browser fallback). The SDK
+    // 8. Desktop browser-open (deep-link browser fallback). The SDK
     //    calls this seam itself when a resolved deep link carries a
     //    `browserAction` and `automaticBrowserHandling` is on (the config
     //    default); it is shown here directly so the mechanism is visible.

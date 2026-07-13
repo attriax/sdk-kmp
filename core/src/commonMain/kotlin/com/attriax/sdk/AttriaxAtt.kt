@@ -1,8 +1,8 @@
 package com.attriax.sdk
 
 /**
- * Apple App Tracking Transparency (ATT) authorization status (Epic 8.5, PARITY §5
- * — the `consent.att` sub-surface).
+ * Apple App Tracking Transparency (ATT) authorization status (
+ * the `consent.att` sub-surface).
  *
  * The [wireValue]s match the api `SdkV1OpenDto.attStatus` contract EXACTLY
  * (`authorized|denied|restricted|notDetermined|unknown`); the engine emits the

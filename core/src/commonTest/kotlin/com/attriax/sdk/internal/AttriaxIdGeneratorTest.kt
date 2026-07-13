@@ -6,7 +6,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
-/** PARITY row D1/S1 — id shape + deterministic formatting. */
+/** id shape + deterministic formatting. */
 class AttriaxIdGeneratorTest {
 
     @Test

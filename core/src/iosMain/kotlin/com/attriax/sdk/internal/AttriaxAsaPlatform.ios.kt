@@ -10,8 +10,7 @@ import platform.AdServices.AAAttribution
 import platform.Foundation.NSError
 
 /**
- * iOS actual for the Apple Search Ads (AdServices) attribution-token seam (Epic 8.5)
- * — the port of the standalone iOS SDK's `AttriaxAsaTokenCapture.fetchAttributionToken`.
+ * iOS actual for the Apple Search Ads (AdServices) attribution-token seam.
  *
  * Reads `AAAttribution.attributionToken()` (AdServices.framework; iOS 14.3+) and
  * returns the opaque token; the token is forwarded verbatim (the server exchanges it

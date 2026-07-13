@@ -15,7 +15,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * SKAdNetwork surface (Epic 8.5) driven through the REAL [Attriax] engine with fakes.
+ * SKAdNetwork surface driven through the REAL [Attriax] engine with fakes.
  * Proves the passthrough contract: the facade validates + applies the monotonic rules
  * and only reaches the on-device seam with the resolved fine/coarse/lock when the value
  * advances; the coarse-value enum maps correctly; off-iOS / disabled / invalid short-

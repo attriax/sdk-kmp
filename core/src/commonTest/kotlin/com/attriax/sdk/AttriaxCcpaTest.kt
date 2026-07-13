@@ -19,7 +19,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * CCPA `doNotSell` / `usPrivacy` surface (Epic 10.1, PARITY §5 — the `consent.ccpa`
+ * CCPA `doNotSell` / `usPrivacy` surface (the `consent.ccpa`
  * sub-surface) driven through the REAL [Attriax] engine with fakes. Proves:
  *  - a config-seeded / runtime-set CCPA election lands TOP-LEVEL as `doNotSell` /
  *    `usPrivacy` on the app-open AND identify (and is OMITTED when unset),

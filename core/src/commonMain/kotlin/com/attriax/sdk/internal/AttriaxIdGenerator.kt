@@ -2,7 +2,7 @@ package com.attriax.sdk.internal
 
 /**
  * Generates UUID-v4-*like* identifiers used for device ids AND queued-request ids
- * (PARITY row D1 / S1; Flutter `internal/attriax_id_generator.dart:5-16`).
+ * (S1; Flutter `internal/attriax_id_generator.dart:5-16`).
  *
  * Format: 16 random bytes rendered lowercase hex, with dashes inserted after
  * bytes 3, 5, 7 and 9. The backend treats the value as opaque, so only the

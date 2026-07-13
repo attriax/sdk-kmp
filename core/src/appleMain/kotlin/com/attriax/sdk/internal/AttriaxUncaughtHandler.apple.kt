@@ -12,12 +12,11 @@ import platform.Foundation.NSGetUncaughtExceptionHandler
 import platform.Foundation.NSSetUncaughtExceptionHandler
 
 /**
- * Apple actual for the OS uncaught-exception handler seam (PARITY §4).
+ * Apple actual for the OS uncaught-exception handler seam.
  *
  * Installs a process-wide Objective-C uncaught-exception handler via
  * `NSSetUncaughtExceptionHandler` (mirrors the Flutter reference
- * `AttriaxCrashReportingManager` handler install/restore, and the standalone iOS
- * SDK's crash capture). On a fatal `NSException` it invokes [onFatalCrash]
+ * `AttriaxCrashReportingManager` handler install/restore). On a fatal `NSException` it invokes [onFatalCrash]
  * SYNCHRONOUSLY (the process is dying — no background executor) with the exception
  * wrapped as a [Throwable], then DELEGATES to the previously-installed handler so the
  * app's normal crash flow (and any other crash reporter) still runs.

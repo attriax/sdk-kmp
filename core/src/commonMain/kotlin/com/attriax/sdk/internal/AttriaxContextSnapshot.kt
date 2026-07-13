@@ -2,7 +2,7 @@ package com.attriax.sdk.internal
 
 /**
  * App/device/sdk/platform context captured once at init and stamped on
- * open/session payloads (PARITY §1 step 3, §3).
+ * open/session payloads.
  *
  * Pure value type — the platform layer populates it from Build/PackageManager and
  * passes it in, so request building stays unit-testable.
@@ -19,7 +19,7 @@ data class AttriaxContextSnapshot(
     val osVersion: String,
     val deviceTimezone: String?,
     val deviceLocale: String?,
-    // Device enrichment (PARITY — Flutter DeviceContextDto). All OPTIONAL: omitted
+    // Device enrichment (Flutter DeviceContextDto). All OPTIONAL: omitted
     // from the wire when null. Wire field names match DeviceContextDto exactly.
     // Populated on Android by the platform factory (auto-capture) and/or supplied by
     // a wrapper via [com.attriax.sdk.AttriaxDeviceContext] (wrapper value wins).

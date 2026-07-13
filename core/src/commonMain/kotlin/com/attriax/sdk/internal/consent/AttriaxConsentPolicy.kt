@@ -1,7 +1,7 @@
 package com.attriax.sdk.internal.consent
 
 /**
- * Pure consent decision policy (PARITY §5, row C4). Framework-free and fully
+ * Pure consent decision policy. Framework-free and fully
  * unit-testable. Mirrors the Flutter reference `AttriaxConsentPolicy`
  * (`internal/consent/attriax_consent_policy.dart`).
  *
@@ -114,7 +114,7 @@ class AttriaxConsentPolicy(
 
     /**
      * Which signals may be captured (anonymously) while consent is still
-     * pending/unknown (row C4). Analytics, ad-events, session, and deep-link
+     * pending/unknown. Analytics, ad-events, session, and deep-link
      * diagnostics are anonymous-capable; attribution and uninstall tracking are
      * identity-linked and NEVER captured while waiting.
      */

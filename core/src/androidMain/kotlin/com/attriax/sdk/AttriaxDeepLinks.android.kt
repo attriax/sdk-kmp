@@ -4,7 +4,7 @@ import android.content.Intent
 import com.attriax.sdk.android.AttriaxDeepLinkIntents
 
 /**
- * Android `Intent`-based deep-link capture (PARITY §6, row DL1) as extensions on
+ * Android `Intent`-based deep-link capture as extensions on
  * the platform-agnostic [AttriaxDeepLinks] facade. A native SDK cannot subscribe
  * to a platform EventChannel like the Flutter plugin does; instead the host app
  * forwards its Activity intents via these helpers, which lower to the common

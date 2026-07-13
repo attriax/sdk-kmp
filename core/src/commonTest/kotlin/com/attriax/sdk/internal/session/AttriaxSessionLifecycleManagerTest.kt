@@ -10,8 +10,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * PARITY rows S3 (heartbeat timers + foreground/background/detach transitions),
- * S4 (keep-alive heartbeat build) and S5 (recovered-end on replace). Timers are
+ * Covers heartbeat timers + foreground/background/detach transitions,
+ * keep-alive heartbeat build and recovered-end on replace. Timers are
  * deterministic: a fake scheduler captures the periodic action and the test fires
  * ticks explicitly — no wall-clock sleeping.
  */
@@ -207,7 +207,7 @@ class AttriaxSessionLifecycleManagerTest {
         f.manager.handleForeground(2_000L + 20L * 60_000)
 
         assertEquals(listOf("end", "start"), kinds(f))
-        // The recovered end carries the stale session + recovered metadata (row S5).
+        // The recovered end carries the stale session + recovered metadata.
         val end = f.enqueued.first { it.kind == "end" }
         assertEquals(staleId, end.session.sessionId)
         assertEquals(true, end.metadata?.get("recovered"))

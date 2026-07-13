@@ -4,7 +4,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import platform.windows.InternetGetConnectedState
 
 /**
- * Windows-native connectivity probe (PARITY §7). Uses `InternetGetConnectedState`
+ * Windows-native connectivity probe. Uses `InternetGetConnectedState`
  * (wininet, already linked by `platform.windows`) — an instant, local query of the
  * system connection state (no network round trip, no latency). A non-zero `BOOL`
  * means the machine reports an active internet connection. Any unexpected failure

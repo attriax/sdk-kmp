@@ -22,14 +22,14 @@ import java.util.TimeZone
  *
  *  - [AttriaxFileKeyValueStore] durable file persistence (survives restarts),
  *  - the single long-lived [AttriaxJvmHttpClient] transport (pure JDK
- *    `HttpURLConnection`) stamped with the mandatory real User-Agent (PARITY §8),
+ * `HttpURLConnection`) stamped with the mandatory real User-Agent,
  *  - [AttriaxDesktopConnectivityMonitor] (NetworkInterface poll; fires the
- *    offline→online restore re-flush, PARITY §7),
+ * offline→online restore re-flush),
  *  - the device-identity resolver over [AttriaxDesktopDeviceIdSources] (no
  *    SSAID/GAID → the persistent generated fallback id),
  *  - [AttriaxJvmScheduler] for the off-thread session heartbeat / deferred flush, and
  *  - [AttriaxJvmBrowserOpener] (`java.awt.Desktop.browse`) for deep-link
- *    browser-fallback opens (PARITY §6).
+ * browser-fallback opens.
  *
  * Install-referrer, attestation, and lifecycle-binding stay at their engine defaults
  * (Unavailable / Noop): a JVM desktop has no Play services and no process-lifecycle

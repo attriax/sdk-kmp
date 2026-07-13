@@ -9,7 +9,7 @@ import kotlinx.atomicfu.locks.synchronized
 /**
  * Internal holder for the runtime synchronization [AttriaxSynchronizationState],
  * driven by the [com.attriax.sdk.Attriax] engine from its real dispatch lifecycle
- * (PARITY — Flutter reference `AttriaxSynchronizer._state` / `setState`,
+ * (Flutter reference `AttriaxSynchronizer._state` / `setState`,
  * `attriax_synchronizer.dart:62/133-139`).
  *
  * Observer fan-out reuses the same lock-guarded snapshot pattern as

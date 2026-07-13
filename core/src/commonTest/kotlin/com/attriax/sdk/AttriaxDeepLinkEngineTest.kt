@@ -14,7 +14,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Engine-level deep-link wiring (PARITY §6, rows DL2/DL3): resolve requests
+ * Engine-level deep-link wiring: resolve requests
  * traverse the real queue + dispatcher and emit resolved events; deferred links are
  * recovered from the app-open RESPONSE and fired once. With a synchronous flush
  * executor the resolve/flush/emit chain completes inline, and a late-added listener

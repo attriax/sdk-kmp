@@ -11,7 +11,7 @@ private const val SKAN_FINE_VALUE_MIN = 0
 private const val SKAN_FINE_VALUE_MAX = 63
 
 /**
- * Derive the coarse value from a fine value (Epic 8.5).
+ * Derive the coarse value from a fine value.
  *
  * Faithful port of the Flutter reference `deriveSkanCoarseValue`
  * (`internal/skan/attriax_skan_rules.dart:55`): `>=40 → high`, `>=20 → medium`,
@@ -40,7 +40,7 @@ internal fun maxSkanCoarseValue(
 }
 
 /**
- * Pure SKAdNetwork conversion-value engine (Epic 8.5) — the passthrough core.
+ * Pure SKAdNetwork conversion-value engine — the passthrough core.
  *
  * Mirrors the public `updateConversionValue` path of the Flutter reference
  * `AttriaxSkanConversionUpdater` (`internal/skan/attriax_skan_conversion_updater.dart`):

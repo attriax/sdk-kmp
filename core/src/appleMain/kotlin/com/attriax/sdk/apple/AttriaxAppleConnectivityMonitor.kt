@@ -15,12 +15,11 @@ import platform.darwin.dispatch_queue_create
 
 /**
  * [ConnectivityMonitor] backed by `NWPathMonitor` (the C `nw_path_monitor` API) —
- * the Kotlin/Native port of the standalone iOS SDK's `AttriaxNWPathConnectivityMonitor`
- * and the Apple sibling of the Android `ConnectivityManager` monitor.
+ * the Apple sibling of the Android `ConnectivityManager` monitor.
  *
  * Invokes [ConnectivityMonitor.Listener.onConnectivityRestored] when the network
  * path transitions unsatisfied → satisfied so the engine re-flushes a queue that
- * stalled while offline (PARITY §7). The update handler runs on a dedicated serial
+ * stalled while offline. The update handler runs on a dedicated serial
  * dispatch queue; all shared state is guarded by [lock].
  */
 @OptIn(ExperimentalForeignApi::class)
@@ -49,7 +48,7 @@ class AttriaxAppleConnectivityMonitor : ConnectivityMonitor {
             val restored: ConnectivityMonitor.Listener? = synchronized(lock) {
                 val wasConnected = connected
                 connected = nowConnected
-                // Fire only on the offline → online edge (PARITY §7 restore re-flush).
+                // Fire only on the offline → online edge (restore re-flush).
                 if (!wasConnected && nowConnected) this.listener else null
             }
             restored?.onConnectivityRestored()

@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
 
 /**
- * Kotlin/Native desktop [ConnectivityMonitor] (PARITY §7 — connectivity-restore
+ * Kotlin/Native desktop [ConnectivityMonitor] (connectivity-restore
  * re-flush), the native sibling of the JVM
  * [com.attriax.sdk.jvm.AttriaxDesktopConnectivityMonitor] and the Apple
  * `AttriaxAppleConnectivityMonitor` (NWPathMonitor).
@@ -63,7 +63,7 @@ class AttriaxNativeConnectivityMonitor(
                 val restored: ConnectivityMonitor.Listener? = synchronized(lock) {
                     val wasConnected = lastConnected
                     lastConnected = nowConnected
-                    // Fire only on the offline → online edge (PARITY §7 restore re-flush).
+                    // Fire only on the offline → online edge (restore re-flush).
                     // Qualified `this@` — inside `launch {}` the bare `this` is the
                     // CoroutineScope receiver, not the monitor.
                     if (!wasConnected && nowConnected) {

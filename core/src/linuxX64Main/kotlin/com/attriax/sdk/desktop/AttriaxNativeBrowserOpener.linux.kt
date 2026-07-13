@@ -4,7 +4,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import platform.posix.system
 
 /**
- * Linux-native browser open (PARITY §6). Delegates to the freedesktop `xdg-open`
+ * Linux-native browser open. Delegates to the freedesktop `xdg-open`
  * helper via `system`. The (http/https-validated) URL is wrapped in single quotes
  * and any embedded single quote is escaped (`'\''`) so it cannot break out of the
  * quoting or inject a shell command. Output is discarded.

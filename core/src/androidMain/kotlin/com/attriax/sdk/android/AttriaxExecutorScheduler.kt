@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * [AttriaxScheduler] backed by a single daemon [ScheduledExecutorService] so
- * heartbeat timers (PARITY §3, row S3) run OFF the main thread and never leak: a
+ * heartbeat timers run OFF the main thread and never leak: a
  * cancelled handle cancels its future, and [shutdown] tears the pool down.
  *
  * This is the only production scheduler; the pure session-lifecycle manager and

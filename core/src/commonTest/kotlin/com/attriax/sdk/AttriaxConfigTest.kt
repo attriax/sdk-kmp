@@ -6,7 +6,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** PARITY row I2 — config defaults. */
+/** config defaults. */
 class AttriaxConfigTest {
 
     @Test

@@ -5,8 +5,8 @@ import com.attriax.sdk.internal.json.Json
 import com.attriax.sdk.internal.request.AttriaxEndpoints
 
 /**
- * Fetches a single-use attestation nonce from `POST /api/sdk/attestation/challenge`
- * (PARITY §8/§9). Pure over the [HttpClient] port so the attestation flow can be
+ * Fetches a single-use attestation nonce from `POST /api/sdk/attestation/challenge`.
+ * Pure over the [HttpClient] port so the attestation flow can be
  * unit-tested with a fake transport.
  *
  * Mirrors the Flutter `fetchAttestationChallenge`

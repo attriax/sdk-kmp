@@ -12,9 +12,8 @@ import platform.darwin.NSObjectProtocol
 
 /**
  * iOS [AttriaxLifecycleBinder]: maps `UIApplication` foreground/background/terminate
- * notifications onto the pure [AttriaxSessionLifecycleManager] (PARITY §3, row S3) —
- * the port of the standalone iOS SDK's `AttriaxUIApplicationLifecycleBinder` and the
- * Apple sibling of the Android `AttriaxProcessLifecycleObserver`.
+ * notifications onto the pure [AttriaxSessionLifecycleManager]. The Apple sibling
+ * of the Android `AttriaxProcessLifecycleObserver`.
  *
  *  - `didBecomeActive`     (foreground) → [AttriaxSessionLifecycleManager.handleForeground]
  *  - `didEnterBackground`  (background) → [AttriaxSessionLifecycleManager.handleBackground]

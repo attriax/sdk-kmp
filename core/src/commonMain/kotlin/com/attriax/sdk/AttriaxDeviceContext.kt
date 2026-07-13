@@ -1,7 +1,7 @@
 package com.attriax.sdk
 
 /**
- * Wrapper-supplied device context (PARITY — Flutter `DeviceContextDto`).
+ * Wrapper-supplied device context (Flutter `DeviceContextDto`).
  *
  * A host wrapper (Flutter / Unity / React Native over this core) can supply the
  * full device field set via [AttriaxConfig.deviceContext]. Wrappers know their

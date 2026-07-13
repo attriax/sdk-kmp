@@ -5,7 +5,7 @@ import kotlin.concurrent.Volatile
 
 /**
  * Identity + timing of the current launch, used to build a fresh session and to
- * decide continue-vs-new against a restored snapshot (PARITY §3, rows S2/S5).
+ * decide continue-vs-new against a restored snapshot.
  */
 data class AttriaxSessionIdentity(
     val deviceId: String?,
@@ -26,7 +26,7 @@ data class AttriaxSessionIdentity(
     )
 }
 
-/** Outcome of a restore/resume decision (row S5): what is current, and what it replaced. */
+/** Outcome of a restore/resume decision: what is current, and what it replaced. */
 data class AttriaxSessionRestoreResult(
     val currentSession: AttriaxSessionSnapshot,
     val startedNewSession: Boolean,
@@ -35,7 +35,7 @@ data class AttriaxSessionRestoreResult(
 )
 
 /**
- * Pure session state machine (PARITY §3, rows S2/S3/S5). Framework-free and
+ * Pure session state machine. Framework-free and
  * unit-testable: it holds the current snapshot in memory, persists it through
  * [snapshotStore], and derives continue-vs-new via [AttriaxSessionContinuation].
  * The lifecycle telemetry (heartbeat timers, foreground/background transitions,
@@ -44,7 +44,7 @@ data class AttriaxSessionRestoreResult(
  *
  * The heartbeat interval for a new session is chosen by first-launch:
  * [firstLaunchHeartbeatIntervalMs] (30s default) for the very first launch, else
- * [heartbeatIntervalMs] (5min default) — row S3.
+ * [heartbeatIntervalMs] (5min default) —.
  */
 class AttriaxSessionManager(
     private val clock: AttriaxClock,
@@ -64,7 +64,7 @@ class AttriaxSessionManager(
     /**
      * Restore the persisted snapshot at launch, continuing it (same id, bumped
      * activity) when identity matches and it is within the continuation window,
-     * else starting a new session and reporting the replaced one (row S5).
+     * else starting a new session and reporting the replaced one.
      */
     fun restoreOrStart(identity: AttriaxSessionIdentity): AttriaxSessionRestoreResult {
         isTrackingEnabled = true
@@ -137,7 +137,7 @@ class AttriaxSessionManager(
         return finalSession
     }
 
-    /** Inferred recovered-end timestamp for a replaced [session] (row S5). */
+    /** Inferred recovered-end timestamp for a replaced [session]. */
     fun inferredRecoveredEndAtMs(session: AttriaxSessionSnapshot): Long =
         AttriaxSessionContinuation.inferredRecoveredEndAtMs(session, clock.nowMs())
 
@@ -147,7 +147,7 @@ class AttriaxSessionManager(
         snapshotStore.write(null)
     }
 
-    /** Full reset to the disabled/no-session state (PARITY reset). */
+    /** Full reset to the disabled/no-session state. */
     fun reset() {
         isTrackingEnabled = false
         clear()

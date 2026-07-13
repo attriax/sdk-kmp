@@ -3,7 +3,7 @@ package com.attriax.sdk.desktop
 import com.attriax.sdk.AttriaxBrowserOpener
 
 /**
- * Kotlin/Native desktop [AttriaxBrowserOpener] actual (PARITY §6 — Flutter
+ * Kotlin/Native desktop [AttriaxBrowserOpener] actual (Flutter
  * `AttriaxPlatform.openBrowserUrl`), the native sibling of the JVM
  * [com.attriax.sdk.jvm.AttriaxJvmBrowserOpener] and the Android
  * `AttriaxAndroidBrowserOpener`. Hands the resolved browser-fallback URL to the OS

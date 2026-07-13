@@ -17,7 +17,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Synchronization-state observability (PARITY — Flutter reference
+ * Synchronization-state observability (Flutter reference
  * `AttriaxSynchronizer`). Drives the real [Attriax] engine through its dispatch
  * lifecycle with synchronous fakes and asserts the state transitions +
  * listener fan-out. Session tracking is OFF so the only init traffic is the

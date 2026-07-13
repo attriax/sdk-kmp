@@ -8,7 +8,7 @@ import com.attriax.sdk.internal.ConnectivityMonitor
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
- * [ConnectivityMonitor] backed by [ConnectivityManager] (PARITY §7 — connectivity
+ * [ConnectivityMonitor] backed by [ConnectivityManager] (connectivity
  * restore re-flushes). Mechanism differs from Flutter's `connectivity_plus`, but
  * the behavior (fire on regain) matches.
  */

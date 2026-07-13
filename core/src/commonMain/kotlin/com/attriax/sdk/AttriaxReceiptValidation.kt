@@ -3,7 +3,7 @@ package com.attriax.sdk
 import com.attriax.sdk.internal.AttriaxIso8601
 
 /**
- * Typed result of [Attriax.validateReceipt] (PARITY §4). Mirrors the Flutter
+ * Typed result of [Attriax.validateReceipt]. Mirrors the Flutter
  * reference `AttriaxRevenueReceiptValidationResult`
  * (attriax_flutter_platform_interface types_links.dart:327-376) field-for-field.
  *
@@ -67,7 +67,7 @@ data class AttriaxRevenueReceiptValidationResult(
 }
 
 /**
- * Outcome of a receipt validation (PARITY — Flutter
+ * Outcome of a receipt validation (Flutter
  * `AttriaxRevenueReceiptValidationStatus`, types.dart:67-74). Wire-string mapping
  * mirrors Flutter's `_parseRevenueReceiptValidationStatus`: `rejected` is the
  * default for `rejected` and any unknown/absent value.

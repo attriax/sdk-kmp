@@ -14,10 +14,9 @@ import kotlinx.atomicfu.locks.synchronized
 
 /**
  * Owns deep-link listener lifecycle, near-duplicate suppression, initial-link
- * probe state, deferred fire-once recovery, and observer fan-out (PARITY §6, rows
- * DL1–DL4). Mirrors the Flutter reference `attriax_deep_link_manager.dart` +
+ * probe state, deferred fire-once recovery, and observer fan-out. Mirrors the Flutter reference `attriax_deep_link_manager.dart` +
  * `attriax_deep_link_listener.dart`, adapted to the engine's plain-thread /
- * listener model (no coroutines — PARITY deep-links scope).
+ * listener model (no coroutines — deep-links scope).
  *
  * Network dispatch is delegated to [resolveDispatch] (supplied by the engine) so
  * this coordinator stays free of transport/queue concerns and remains easy to test
@@ -35,11 +34,11 @@ class AttriaxDeepLinkManager(
     private val resolveDispatch: (uri: AttriaxUri, metadata: Map<String, Any?>, source: String, isInitialLink: Boolean, onResolved: (Map<String, Any?>?) -> Unit) -> Unit,
     /** Reads the persisted "deferred deep-link already handled" flag. */
     private val readDeferredHandled: () -> Boolean,
-    /** Persists the deferred-handled flag so the deferred link fires ONCE (row DL3). */
+    /** Persists the deferred-handled flag so the deferred link fires ONCE. */
     private val writeDeferredHandled: (Boolean) -> Unit,
     /**
      * Open a resolution's browser-fallback action, returning whether the SDK handled
-     * it (PARITY §6 — Flutter `_buildResolutionWithBrowserHandling` →
+     * it (Flutter `_buildResolutionWithBrowserHandling` →
      * `AttriaxDeepLinkBrowserHandler.handle`). The engine supplies a function that
      * already applies the [com.attriax.sdk.AttriaxConfig.automaticBrowserHandling]
      * gate and the platform opener; the default no-ops (never handled). Invoked ONLY
@@ -47,7 +46,7 @@ class AttriaxDeepLinkManager(
      * reference, whose `buildDeferredResolution` performs no browser handling).
      */
     private val handleBrowserAction: (AttriaxBrowserAction?) -> Boolean = { false },
-    /** Dedup window for identical URIs (row DL2). Default 2s per the reference. */
+    /** Dedup window for identical URIs. Default 2s per the reference. */
     private val dedupWindowMs: Long = DEFAULT_DEDUP_WINDOW_MS,
 ) {
     private val lock = SynchronizedObject()
@@ -61,7 +60,7 @@ class AttriaxDeepLinkManager(
     private var lastHandledAtMs: Long = 0
 
     /**
-     * Per-raw-event resolution slots (PARITY §6 — Flutter event-hub
+     * Per-raw-event resolution slots (Flutter event-hub
      * `_pendingDeepLinkResults`). Registered when a link is staged for resolution and
      * completed (with the resolved event, or null on failure/no-capture) when the
      * backend responds, so [waitResolution] can block for a specific raw event's
@@ -168,7 +167,7 @@ class AttriaxDeepLinkManager(
             val event = if (data != null) {
                 val result = AttriaxDeepLinkResolver.decodeResolution(data)
                 // Browser handling runs BEFORE building the event so `handledBySdk`
-                // reflects the open outcome (PARITY — _buildResolutionWithBrowserHandling).
+                // reflects the open outcome (_buildResolutionWithBrowserHandling).
                 val handledBySdk = handleBrowserAction(result.browserAction)
                 AttriaxDeepLinkResolver.buildResolution(
                     result = result,
@@ -235,7 +234,7 @@ class AttriaxDeepLinkManager(
     }
 
     /**
-     * Wait for the resolution of a previously-staged raw deep link (PARITY §6 —
+     * Wait for the resolution of a previously-staged raw deep link (
      * Flutter `waitResolution` → event-hub `waitForResolution`,
      * attriax_deep_links.dart:46-48). Blocks (bounded by [timeoutMs]) until the raw
      * event's resolution completes and returns the resolved event, or null when it
@@ -254,7 +253,7 @@ class AttriaxDeepLinkManager(
     }
 
     /**
-     * Recover a deferred deep link from the app-open RESPONSE (row DL3). Fires at
+     * Recover a deferred deep link from the app-open RESPONSE. Fires at
      * most ONCE (guarded in-memory for this runtime AND by the persisted flag), and
      * is skipped on `appDataClear`.
      */

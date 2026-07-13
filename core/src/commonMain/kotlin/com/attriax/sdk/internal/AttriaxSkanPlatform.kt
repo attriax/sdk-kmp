@@ -13,7 +13,7 @@ import com.attriax.sdk.AttriaxSkanUpdateStatus
  * .updateConversionValue] to [AttriaxSkanUpdateStatus.NOT_SUPPORTED], mirroring the
  * Flutter reference `attriaxPlatformSupportsSkan` gate.
  *
- * iosMain actual (deferred to Mac): return `true` (SKAdNetwork is available on iOS
+ * iosMain actual: return `true` (SKAdNetwork is available on iOS
  * 14+; older iOS still exposes the register API, and StoreKit itself no-ops safely).
  */
 internal expect fun attriaxSkanSupported(): Boolean
@@ -27,7 +27,7 @@ internal expect fun attriaxSkanSupported(): Boolean
  * conversion value actually advances (validation + monotonic gating happen in common
  * — see `AttriaxSkanEngine`).
  *
- * iosMain actual (deferred to Mac): call
+ * iosMain actual: call
  * `SKAdNetwork.updatePostbackConversionValue(_:coarseValue:lockWindow:completionHandler:)`
  * on iOS 16.1+ (bridging the async completion to a blocking result), falling back to
  * `SKAdNetwork.updateConversionValue(_:)` on older iOS; map success →

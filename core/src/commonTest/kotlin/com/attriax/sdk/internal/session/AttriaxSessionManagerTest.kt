@@ -9,8 +9,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * PARITY rows S2 (continue-vs-new), S3 (heartbeat interval selection), S5
- * (snapshot persist/restore/revalidate + recovered-end). The clock is injected;
+ * Covers continue-vs-new, heartbeat interval selection, and snapshot
+ * persist/restore/revalidate + recovered-end. The clock is injected;
  * no wall-clock sleeps.
  */
 class AttriaxSessionManagerTest {

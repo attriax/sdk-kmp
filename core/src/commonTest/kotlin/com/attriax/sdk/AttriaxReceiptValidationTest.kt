@@ -6,7 +6,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Typed receipt-validation result parsing (PARITY §4 — Flutter
+ * Typed receipt-validation result parsing (Flutter
  * `AttriaxRevenueReceiptValidationResult.fromJson`). The engine hands
  * [AttriaxRevenueReceiptValidationResult.fromResponse] the envelope-unwrapped `data`
  * map; every field maps by name, unknown/absent status collapses to REJECTED, and a

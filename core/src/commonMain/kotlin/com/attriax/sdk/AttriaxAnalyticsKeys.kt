@@ -1,8 +1,8 @@
 package com.attriax.sdk
 
 /**
- * Reserved analytics event names used by the standardized tracking helpers
- * (PARITY §4, row E1). Mirrors the Flutter reference `AttriaxAnalyticsEventKeys`
+ * Reserved analytics event names used by the standardized tracking helpers.
+ * Mirrors the Flutter reference `AttriaxAnalyticsEventKeys`
  * (`attriax_analytics_keys.dart`). Keep these in sync across SDKs so dashboard
  * funnels, SKAN rules, and revenue rollups agree on names.
  */
@@ -36,8 +36,8 @@ object AttriaxAnalyticsEventKeys {
 }
 
 /**
- * Reserved analytics payload keys used by the standardized tracking helpers
- * (PARITY §4, rows E2/E3). Mirrors the Flutter reference
+ * Reserved analytics payload keys used by the standardized tracking helpers.
+ * Mirrors the Flutter reference
  * `AttriaxAnalyticsParamKeys`.
  */
 object AttriaxAnalyticsParamKeys {
@@ -113,7 +113,7 @@ enum class AttriaxNotificationEventType(val wireValue: String) {
 /**
  * Delivery channel a push notification arrived through. Wire values match the
  * api `NotificationEventSource` enum. Inferred from the raw payload when omitted
- * (`aps` → apns; `google.`/`gcm.` → fcm; PARITY row E6).
+ * (`aps` → apns; `google.`/`gcm.` → fcm).
  */
 enum class AttriaxNotificationEventSource(val wireValue: String) {
     FCM("fcm"),

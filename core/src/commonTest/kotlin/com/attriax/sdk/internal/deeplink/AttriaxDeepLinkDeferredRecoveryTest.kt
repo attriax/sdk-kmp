@@ -8,7 +8,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Pure deferred-recovery tests (PARITY §6, row DL3): source PREFERENCE order
+ * Pure deferred-recovery tests: source PREFERENCE order
  * (deepLink > reinstall > install), the appDataClear skip, and the found flag.
  */
 class AttriaxDeepLinkDeferredRecoveryTest {

@@ -3,7 +3,7 @@ package com.attriax.sdk
 import com.attriax.sdk.internal.deeplink.AttriaxUri
 
 /**
- * Public deep-link value types (PARITY §6, rows DL1–DL4). Mirrors the Flutter
+ * Public deep-link value types. Mirrors the Flutter
  * reference `types_deep_link_lifecycle.dart` + `types.dart` enums.
  */
 
@@ -19,7 +19,7 @@ enum class AttriaxDeepLinkTrigger {
     DEFERRED,
 }
 
-/** Backend resolution outcome for a deep link (row DL4). */
+/** Backend resolution outcome for a deep link. */
 enum class AttriaxDeepLinkResolutionStatus {
     MATCHED,
     UNMATCHED,
@@ -59,14 +59,14 @@ data class AttriaxBrowserAction(
     val openMode: AttriaxResolvedUrlOpenMode,
 )
 
-/** A raw deep-link input captured from native platform intents (row DL1). */
+/** A raw deep-link input captured from native platform intents. */
 data class AttriaxRawDeepLinkEvent(
     val uri: AttriaxUri,
     val receivedAtMs: Long,
     val isInitial: Boolean,
 )
 
-/** A handled deep-link event emitted to observers after resolution (rows DL2/DL3). */
+/** A handled deep-link event emitted to observers after resolution. */
 data class AttriaxDeepLinkEvent(
     val uri: AttriaxUri,
     val clickedAtMs: Long,
@@ -80,7 +80,7 @@ data class AttriaxDeepLinkEvent(
     val utm: Map<String, String>? = null,
     val browserAction: AttriaxBrowserAction? = null,
     /**
-     * Whether the SDK opened this resolution's browser-fallback URL itself (PARITY —
+     * Whether the SDK opened this resolution's browser-fallback URL itself (
      * Flutter `AttriaxDeepLinkEvent.handledBySdk`, set by `buildResolution` from the
      * browser handler). `true` only when [AttriaxConfig.automaticBrowserHandling] is
      * on, the resolution carried a [browserAction], and the platform opener reported
@@ -146,7 +146,7 @@ data class AttriaxCreateDynamicLinkResult(
     val record: AttriaxDynamicLinkRecord,
 )
 
-/** Observer for handled deep-link events (row DL1 listener pattern). */
+/** Observer for handled deep-link events (listener pattern). */
 fun interface AttriaxDeepLinkListener {
     fun onDeepLink(event: AttriaxDeepLinkEvent)
 }

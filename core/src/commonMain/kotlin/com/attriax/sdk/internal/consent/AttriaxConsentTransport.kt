@@ -6,7 +6,7 @@ import com.attriax.sdk.internal.request.AttriaxEndpoints
 import com.attriax.sdk.internal.json.Json
 
 /**
- * The remote consent status echo (PARITY §5, row C2). Mirrors the api
+ * The remote consent status echo. Mirrors the api
  * `SdkGdprConsentStatusDto` (returned inside the `{data:...}` envelope the
  * transport already unwraps). Only the fields the SDK consumes are modeled.
  */

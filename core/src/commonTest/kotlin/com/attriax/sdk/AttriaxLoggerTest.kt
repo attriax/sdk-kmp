@@ -8,7 +8,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Leveled-logger gating (PARITY — Flutter reference `AttriaxLogger`). Driven with
+ * Leveled-logger gating (Flutter reference `AttriaxLogger`). Driven with
  * an injected recording sink so gating is asserted without touching the platform
  * stdout/stderr seams: debug/info are gated behind `enableDebugLogs`; warn/error
  * always emit. Deterministic on jvm AND native.

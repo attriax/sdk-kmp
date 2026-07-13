@@ -19,7 +19,7 @@ data class AttriaxSessionLifecycleEvent(
 )
 
 /**
- * Pure session lifecycle + heartbeat state machine (PARITY §3, rows S3/S5).
+ * Pure session lifecycle + heartbeat state machine.
  *
  * Owns the foreground/background/detach transitions, the heartbeat timer, the
  * pending initial-start and recovered-end telemetry, and the successful-flush
@@ -60,12 +60,12 @@ class AttriaxSessionLifecycleManager(
 
     val inBackground: Boolean get() = synchronized(lock) { isInBackground }
 
-    /** Seed the START to emit for a freshly-started restore session (row S3). */
+    /** Seed the START to emit for a freshly-started restore session. */
     fun seedInitialSessionStart(session: AttriaxSessionSnapshot?) = synchronized(lock) {
         pendingInitialStart = session
     }
 
-    /** Seed the recovered END to emit for a replaced restore session (row S5). */
+    /** Seed the recovered END to emit for a replaced restore session. */
     fun seedRecoveredSessionEnd(session: AttriaxSessionSnapshot?) = synchronized(lock) {
         pendingRecoveredEnd = session
     }
@@ -99,7 +99,7 @@ class AttriaxSessionLifecycleManager(
     }
 
     /**
-     * The app moved to the foreground (row S3). On the first foreground of a launch
+     * The app moved to the foreground. On the first foreground of a launch
      * (was not in background) this is a no-op beyond (re)starting the heartbeat —
      * the initial START was already seeded at restore. A foreground FROM background
      * resumes the same session (within window) or starts a new one (past window,
@@ -136,7 +136,7 @@ class AttriaxSessionLifecycleManager(
     }
 
     /**
-     * The app moved to the background/hidden (row S3): PAUSE the current session and
+     * The app moved to the background/hidden: PAUSE the current session and
      * stop the heartbeat. A no-op if already backgrounded.
      */
     fun handleBackground(atMs: Long = clock.nowMs()) {
@@ -158,7 +158,7 @@ class AttriaxSessionLifecycleManager(
     }
 
     /**
-     * The process is detaching (row S3): END the current session and stop the
+     * The process is detaching: END the current session and stop the
      * heartbeat.
      */
     fun handleDetached(atMs: Long = clock.nowMs()) {
@@ -177,7 +177,7 @@ class AttriaxSessionLifecycleManager(
 
     /**
      * Called by the dispatcher when a batch carrying an event tagged with
-     * [sessionId] is delivered (PARITY §4, row S4 keep-alive). Bumps the session's
+     * [sessionId] is delivered (keep-alive). Bumps the session's
      * last-activity to [occurredAtMs] and restarts the heartbeat, so a stream of
      * foreground events keeps the session alive without emitting extra heartbeats.
      * Mirrors Flutter `handleSuccessfulForegroundFlush`.
@@ -192,7 +192,7 @@ class AttriaxSessionLifecycleManager(
 
     /**
      * Build the keep-alive HEARTBEAT lifecycle event for the current session at
-     * [occurredAtMs] (row S4). Returns null when there is no active foreground
+     * [occurredAtMs]. Returns null when there is no active foreground
      * session — the dispatcher then appends no synthetic keep-alive.
      */
     fun buildKeepAliveHeartbeat(occurredAtMs: Long = clock.nowMs()): AttriaxSessionLifecycleEvent? =
@@ -208,7 +208,7 @@ class AttriaxSessionLifecycleManager(
 
     // -------- internals --------
 
-    /** Timer tick: record activity + enqueue a HEARTBEAT (row S3). */
+    /** Timer tick: record activity + enqueue a HEARTBEAT. */
     private fun onHeartbeatTick() {
         val actions = ArrayList<() -> Unit>()
         synchronized(lock) {

@@ -5,7 +5,7 @@ import kotlin.math.floor
 /**
  * A tiny, dependency-free JSON encoder/decoder for the SDK's simple wire shapes.
  *
- * Rationale (PARITY constraint): the wire shapes are flat maps/lists of
+ * Rationale (constraint): the wire shapes are flat maps/lists of
  * strings/numbers/bools/null. We deliberately avoid a heavy JSON dependency and
  * keep queue serialization, batching, and legacy normalization as PURE Kotlin so
  * they are fully unit-testable on every target off-device.

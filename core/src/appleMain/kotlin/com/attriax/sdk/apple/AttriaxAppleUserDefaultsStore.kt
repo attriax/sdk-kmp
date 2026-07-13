@@ -10,8 +10,7 @@ import platform.Foundation.NSUserDefaults
  * process restarts; the pure engine + tests depend only on [KeyValueStore].
  *
  * The suite name namespaces the SDK's keys away from the host app's
- * `standardUserDefaults`, matching both the Android dedicated-prefs file and the
- * standalone iOS SDK's `AttriaxUserDefaultsStore`.
+ * `standardUserDefaults`, matching the Android dedicated-prefs file.
  */
 class AttriaxAppleUserDefaultsStore(
     suiteName: String = SUITE_NAME,

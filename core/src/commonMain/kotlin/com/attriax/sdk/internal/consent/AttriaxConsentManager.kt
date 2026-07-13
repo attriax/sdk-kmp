@@ -10,15 +10,15 @@ import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 
 /**
- * Local GDPR consent state machine + generation-guarded background sync
- * (PARITY §5, rows C1–C3). Framework-free: it depends only on the [AttriaxConfig]
+ * Local GDPR consent state machine + generation-guarded background sync.
+ * Framework-free: it depends only on the [AttriaxConfig]
  * value, an [AttriaxClock], a [AttriaxConsentStore] over the KeyValueStore port,
  * an [AttriaxConsentTransport] port, and a plain [AttriaxExecutor] for the async
  * sync — so the downgrade race can be reproduced deterministically in tests.
  *
  * Mirrors the Flutter reference `AttriaxConsentManager`.
  *
- * THE GENERATION GUARD (row C3 — the critical fix). Every local consent decision
+ * THE GENERATION GUARD (the critical fix). Every local consent decision
  * ([setConsent]/[setNotRequired]/[reset]) applies immediately, then bumps the
  * monotonic [generation] counter and kicks a background sync. The sync loop
  * captures the generation BEFORE the network await; when the echo returns it
@@ -50,7 +50,7 @@ class AttriaxConsentManager(
     @Volatile private var anonymousTracking: Boolean = config.anonymousTracking
 
     /**
-     * Monotonic generation counter (row C3). Read under [lock]; bumped on every
+     * Monotonic generation counter. Read under [lock]; bumped on every
      * local consent decision. The sync loop compares against a value captured
      * before its network await to detect a newer decision landing mid-flight.
      */
@@ -113,7 +113,7 @@ class AttriaxConsentManager(
         }
     }
 
-    // -------- decisions (apply locally immediately; row C2) --------
+    // -------- decisions (apply locally immediately) --------
 
     fun setConsent(analytics: Boolean, attribution: Boolean, adEvents: Boolean) {
         applyLocalDecision(
@@ -141,7 +141,7 @@ class AttriaxConsentManager(
     }
 
     /**
-     * needsConsent (row C1 semantics). With [localOnly] we answer from stored state
+     * needsConsent (semantics). With [localOnly] we answer from stored state
      * only; otherwise we may ask the backend (generation-guarded like the sync).
      * Returns whether the SDK is still waiting for an explicit decision.
      */
@@ -208,7 +208,7 @@ class AttriaxConsentManager(
             countryCode = newCountryCode
             checkedAtIso = nowIso()
             pendingSync = true
-            // Bump the generation for EVERY decision (row C3) so an in-flight echo
+            // Bump the generation for EVERY decision so an in-flight echo
             // for the previous decision is detected as stale even when the state
             // token is unchanged (e.g. granted→granted with different values).
             generation++
@@ -239,7 +239,7 @@ class AttriaxConsentManager(
     }
 
     /**
-     * The generation-guarded convergence loop (row C3). Each iteration captures the
+     * The generation-guarded convergence loop. Each iteration captures the
      * generation BEFORE the upsert await; if it advanced by the time the echo
      * returns, a newer local decision landed and the echo is DISCARDED (we loop and
      * re-sync the now-current state). Otherwise the echo is applied and we stop.

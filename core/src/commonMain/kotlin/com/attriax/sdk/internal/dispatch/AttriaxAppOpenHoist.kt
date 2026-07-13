@@ -3,7 +3,7 @@ package com.attriax.sdk.internal.dispatch
 import com.attriax.sdk.internal.queue.AttriaxQueuedRequest
 
 /**
- * App-open-first ordering (PARITY §3, row O2;
+ * App-open-first ordering (
  * Flutter `dispatcher.dart:515-530` `_prioritizeAppOpenRequests`).
  *
  * Enforced positionally at flush, not by a lock: any app-open request is hoisted

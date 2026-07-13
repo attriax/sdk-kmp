@@ -19,8 +19,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Apple ATT (App Tracking Transparency) surface + push-token wire (Epic 8.5,
- * PARITY §5) driven through the REAL [Attriax] engine with fakes. Proves:
+ * Apple ATT (App Tracking Transparency) surface + push-token wire
+ * driven through the REAL [Attriax] engine with fakes. Proves:
  *  - a wrapper-supplied / seam-resolved ATT status lands TOP-LEVEL as `attStatus`
  *    on the app-open (and is OMITTED when UNKNOWN),
  *  - `consent.att.status` returns the wrapper-supplied value, else the seam default,

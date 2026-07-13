@@ -1,8 +1,7 @@
 package com.attriax.sdk.internal.asa
 
 /**
- * Orchestrates the SDK-side Apple Search Ads (AdServices) token capture flow
- * (Epic 8.5).
+ * Orchestrates the SDK-side Apple Search Ads (AdServices) token capture flow.
  *
  * Faithful port of the Flutter reference `AttriaxAsaTokenManager`
  * (`internal/attriax_asa_token_manager.dart`). Two entry points:

@@ -17,7 +17,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Apple Search Ads (AdServices) token capture (Epic 8.5) driven through the REAL
+ * Apple Search Ads (AdServices) token capture driven through the REAL
  * [Attriax] engine with fakes. Proves the FROZEN wire `{projectToken, token}` to
  * `/api/sdk/v1/asa/token`, the config-flag / null-token gating of the init auto-capture,
  * and that wrapper-supply works irrespective of the platform fetch seam.

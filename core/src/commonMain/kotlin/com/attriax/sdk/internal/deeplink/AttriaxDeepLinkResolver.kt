@@ -9,7 +9,7 @@ import com.attriax.sdk.AttriaxRawDeepLinkEvent
 import com.attriax.sdk.AttriaxResolvedUrlOpenMode
 
 /**
- * Pure deep-link resolution helpers (PARITY §6, rows DL2/DL3/DL4). Mirrors the
+ * Pure deep-link resolution helpers. Mirrors the
  * Flutter reference `attriax_deep_link_resolver.dart`. Framework-free so link-path
  * normalization, query-parameter metadata, status mapping, and deferred recovery
  * are all unit-testable without `android.content.Intent` / `android.net.Uri`.

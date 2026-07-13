@@ -8,7 +8,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** PARITY rows Q2 (classification), Q3 (backoff / Retry-After), Q4 (terminal drop + DL exemption). */
+/** Retry classification, backoff / Retry-After, terminal drop + DL exemption. */
 class AttriaxRetryPolicyTest {
 
     // ---- Q2: retryable classification ----

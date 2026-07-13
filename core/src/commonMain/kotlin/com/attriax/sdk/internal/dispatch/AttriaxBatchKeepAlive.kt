@@ -4,7 +4,7 @@ import com.attriax.sdk.internal.request.AttriaxApiRequest
 
 /**
  * A synthetic session keep-alive appended to a batch that carries a live-session
- * event (PARITY §4, row S4). The [request] MUST be a batchable session request
+ * event. The [request] MUST be a batchable session request
  * that shares identity with the batch group. It is appended to the transport
  * payload only (never persisted in the queue); on successful batch delivery the
  * dispatcher reports `(sessionId, occurredAtMs)` so the session manager can bump

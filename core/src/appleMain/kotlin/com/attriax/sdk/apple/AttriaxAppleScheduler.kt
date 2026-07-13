@@ -12,9 +12,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
 
 /**
- * Apple [AttriaxScheduler] for the session heartbeat / deferred flush (PARITY §3,
- * row S3). Structurally identical to the desktop `AttriaxNativeScheduler` and the
- * standalone iOS SDK's run-loop `AttriaxTimerScheduler`: timers run OFF the caller
+ * Apple [AttriaxScheduler] for the session heartbeat / deferred flush.
+ * Structurally identical to the desktop `AttriaxNativeScheduler`: timers run OFF the caller
  * thread on a dedicated single-thread coroutine dispatcher and never leak — a
  * cancelled handle cancels its coroutine and [shutdown] tears the dispatcher down.
  *

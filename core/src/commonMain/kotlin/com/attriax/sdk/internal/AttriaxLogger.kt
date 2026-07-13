@@ -1,6 +1,6 @@
 package com.attriax.sdk.internal
 
-/** Leveled log severity (PARITY — Flutter reference `AttriaxLogger`). */
+/** Leveled log severity (Flutter reference `AttriaxLogger`). */
 internal enum class AttriaxLogLevel { DEBUG, INFO, WARNING, ERROR }
 
 /**
@@ -23,7 +23,7 @@ internal fun interface AttriaxLogSink {
 }
 
 /**
- * Leveled logger (PARITY — Flutter reference `AttriaxLogger`,
+ * Leveled logger (Flutter reference `AttriaxLogger`,
  * `attriax_logger.dart`). Gating mirrors Flutter: [debug]/[info] are suppressed
  * unless [enableDebugLogs] is set; [warn]/[error] always emit. Every line carries
  * the `[Attriax][LEVEL]` tag (Flutter's `[Attriax][$level] $message` format).

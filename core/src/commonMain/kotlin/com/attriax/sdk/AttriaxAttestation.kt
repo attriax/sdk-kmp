@@ -1,7 +1,7 @@
 package com.attriax.sdk
 
 /**
- * Public device-attestation seam (PARITY §9, rows AT1–AT3; Epic 9.2 slice 5).
+ * Public device-attestation seam.
  *
  * Mirrors the Flutter reference contract
  * (`attriax_flutter_platform_interface/lib/src/types_attestation.dart`):
@@ -16,7 +16,7 @@ package com.attriax.sdk
  */
 
 /**
- * Canonical Attriax device-attestation provider slugs (server contract, Epic 7.3a).
+ * Canonical Attriax device-attestation provider slugs (server contract).
  *
  * The server treats any other/absent value as `attestation_missing`, so the SDK
  * only ever emits these two slugs. Android produces [PLAY_INTEGRITY]; Apple

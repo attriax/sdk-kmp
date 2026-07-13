@@ -3,7 +3,7 @@ package com.attriax.sdk.internal
 import com.attriax.sdk.AttriaxVersion
 
 /**
- * Builds the mandatory, load-bearing SDK User-Agent (PARITY §8 / row W2).
+ * Builds the mandatory, load-bearing SDK User-Agent.
  *
  * The backend runs `isbot` over the UA. The generator default
  * `OpenAPI-Generator/...` — and even the bare `attriax-android-sdk/x` form

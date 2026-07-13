@@ -29,15 +29,15 @@ import platform.posix.getenv
  *    restarts),
  *  - the single long-lived [AttriaxKtorHttpClient] transport (Ktor over the
  *    per-target engine — WinHttp on Windows, Curl on Linux) stamped with the
- *    mandatory real, isbot-passing User-Agent (`attriax-native-sdk`; PARITY §8),
+ * mandatory real, isbot-passing User-Agent (`attriax-native-sdk`),
  *  - [AttriaxNativeConnectivityMonitor] (OS connectivity poll —
  *    `InternetGetConnectedState` on Windows, `getifaddrs` on Linux; fires the
- *    offline→online restore re-flush, PARITY §7),
+ * offline→online restore re-flush),
  *  - the device-identity resolver over [AttriaxNativeDeviceIdSources] (no
  *    SSAID/GAID → the persistent generated fallback id),
  *  - [AttriaxNativeScheduler] for the off-thread session heartbeat / deferred flush, and
  *  - [AttriaxNativeBrowserOpener] (`ShellExecuteW` on Windows, `xdg-open` on Linux)
- *    for deep-link browser-fallback opens (PARITY §6).
+ * for deep-link browser-fallback opens.
  *
  * Install-referrer, attestation, and lifecycle-binding stay at their engine defaults
  * (Unavailable / Noop): a native desktop host has no Play services and no

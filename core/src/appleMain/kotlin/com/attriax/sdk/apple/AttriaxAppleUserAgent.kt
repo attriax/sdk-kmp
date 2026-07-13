@@ -15,8 +15,7 @@ import platform.darwin.dispatch_semaphore_wait
 import platform.darwin.dispatch_time
 
 /**
- * Resolves the mandatory, load-bearing SDK User-Agent for the Apple transport
- * (PARITY §8 / row W2).
+ * Resolves the mandatory, load-bearing SDK User-Agent for the Apple transport.
  *
  * The backend runs `isbot` over the UA and DERIVES the device/OS from it, so iOS/
  * macOS must send a REAL, API-parseable browser UA — the actual `WKWebView`

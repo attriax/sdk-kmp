@@ -9,8 +9,8 @@ import com.attriax.sdk.internal.session.AttriaxSessionLifecycleManager
 
 /**
  * Thin Android adapter that maps app-wide foreground/background transitions from
- * [ProcessLifecycleOwner] onto the pure [AttriaxSessionLifecycleManager] (PARITY
- * §3, row S3). This is the ONLY session file that touches an Android framework
+ * [ProcessLifecycleOwner] onto the pure [AttriaxSessionLifecycleManager]. This is
+ * the ONLY session file that touches an Android framework
  * type, keeping the state machine + heartbeat logic JVM-testable.
  *
  * Mapping (mirrors Flutter's `AppLifecycleState` handling):

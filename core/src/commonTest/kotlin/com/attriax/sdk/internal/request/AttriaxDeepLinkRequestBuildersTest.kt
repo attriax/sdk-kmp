@@ -6,8 +6,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Wire-shape tests for the deep-link resolve + dynamic-link request builders
- * (PARITY §6, rows DL2/W1). Grounds the payloads in the api DTOs
+ * Wire-shape tests for the deep-link resolve + dynamic-link request builders.
+ * Grounds the payloads in the api DTOs
  * (`SdkV1DeepLinkResolveDto` / `SdkCreateDynamicLinkDto`) — unknown props are
  * rejected by whitelist validation, so absent optionals must be OMITTED.
  */

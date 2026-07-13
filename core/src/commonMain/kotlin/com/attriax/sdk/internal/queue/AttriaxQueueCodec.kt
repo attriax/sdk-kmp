@@ -6,7 +6,7 @@ import com.attriax.sdk.internal.request.AttriaxEndpoints
 
 /**
  * Pure (de)serialization of the persisted queue, including the legacy
- * field-normalization boundary (PARITY §10, row FR1;
+ * field-normalization boundary (
  * Flutter `request_json_codec.dart:34-76`).
  *
  * At the deserialization boundary:
@@ -15,7 +15,7 @@ import com.attriax.sdk.internal.request.AttriaxEndpoints
  *    drop `appToken`).
  *  - `identify` kind → `user` handler alias.
  *
- * Corruption handling (row Q1):
+ * Corruption handling:
  *  - a whole-payload that is not a JSON array → clear the queue.
  *  - individual invalid entries → dropped (the rest are kept).
  */
@@ -55,7 +55,7 @@ object AttriaxQueueCodec {
         val list = try {
             Json.decodeArray(rawPayload)
         } catch (e: Exception) {
-            // Invalid whole payload → clear (row Q1).
+            // Invalid whole payload → clear.
             return DecodeResult(emptyList(), clearedWholePayload = true)
         }
 
@@ -102,7 +102,7 @@ object AttriaxQueueCodec {
     }
 
     /**
-     * Legacy normalization at the restore boundary (row FR1). Public so it can
+     * Legacy normalization at the restore boundary. Public so it can
      * be unit-tested directly against the parity contract.
      */
     fun normalize(rawKind: String, rawBody: Map<String, Any?>): Pair<String, Map<String, Any?>> {

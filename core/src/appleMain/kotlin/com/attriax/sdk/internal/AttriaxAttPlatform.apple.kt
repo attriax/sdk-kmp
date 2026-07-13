@@ -16,8 +16,7 @@ import platform.darwin.dispatch_semaphore_wait
 import platform.darwin.dispatch_time
 
 /**
- * Apple actuals for the ATT (App Tracking Transparency) seams (PARITY §5) — the port
- * of the standalone iOS SDK's `AttriaxAppTrackingTransparencyReader`.
+ * Apple actuals for the ATT (App Tracking Transparency) seams.
  *
  * Reads / prompts via `ATTrackingManager` (AppTrackingTransparency.framework; iOS
  * 14+ / macOS 11+). Reading the status NEVER prompts. `requestTrackingAuthorization`
