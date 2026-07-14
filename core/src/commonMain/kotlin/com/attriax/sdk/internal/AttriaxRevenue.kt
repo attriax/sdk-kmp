@@ -18,7 +18,7 @@ object AttriaxRevenue {
     /**
      * Validate [currency] against `^[A-Z]{3}$` (after trim+uppercase). On a valid
      * code the [revenue] passes through unchanged; otherwise revenue is defaulted
-     * to `0` and the currency to `USD` (the caller emits a warning) —.
+     * to `0` and the currency to `USD` (the caller emits a warning).
      */
     fun normalizeRevenueCurrency(revenue: Double, currency: String?): NormalizedRevenue {
         val normalizedCurrency = currency?.trim()?.takeIf { it.isNotEmpty() }?.uppercase()
@@ -36,7 +36,7 @@ object AttriaxRevenue {
 
     /**
      * Refund revenue is the negated absolute value of the normalized revenue, with
-     * `0` preserved as `0` (avoids a signed-zero) —.
+     * `0` preserved as `0` (avoids a signed-zero).
      */
     fun refundRevenue(normalizedRevenue: Double): Double =
         if (normalizedRevenue == 0.0) 0.0 else -kotlin.math.abs(normalizedRevenue)

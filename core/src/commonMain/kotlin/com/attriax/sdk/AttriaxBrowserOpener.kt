@@ -17,9 +17,13 @@ fun interface AttriaxBrowserOpener {
 
     companion object {
         /**
-         * Default seam that opens nothing and reports `false` (used by the pure
-         * engine + jvm/native, where desktop browser-open is not yet implemented).
-         * The android factory injects a real ACTION_VIEW-backed opener.
+         * Default seam that opens nothing and reports `false` — used by the pure
+         * engine (and any host that does not wire a real opener). Every shipping
+         * target now has a real opener: Android injects an ACTION_VIEW-backed opener,
+         * JVM uses [com.attriax.sdk.jvm.AttriaxJvmBrowserOpener]
+         * (`java.awt.Desktop.browse`), and desktop-native uses
+         * [com.attriax.sdk.desktop.AttriaxNativeBrowserOpener] (`ShellExecuteW` on
+         * Windows, `xdg-open` on Linux).
          */
         val Unavailable: AttriaxBrowserOpener = AttriaxBrowserOpener { false }
     }

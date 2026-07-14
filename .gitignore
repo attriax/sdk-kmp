@@ -9,3 +9,6 @@ captures/
 .cxx/
 .DS_Store
 # Kotlin/Native compiler toolchain lives in ~/.konan (out of tree) — nothing to ignore here.
+
+# Kotlin/Native + KGP local caches
+.kotlin/

@@ -73,19 +73,19 @@ class AttriaxCcpaConsent internal constructor(private val engine: Attriax) {
  * Apple App Tracking Transparency actions (Flutter reference
  * `AttriaxAttConsent`, `attriax_consent.dart:69-80`).
  *
- * ATT is an Apple-only framework, so on every currently-built target
- * (android/jvm/native) [status] reports the wrapper-supplied value if one was set
- * (via [AttriaxConfig.attStatus] or [setStatus]), otherwise
- * [AttriaxAttStatus.UNKNOWN] from the platform seam; [requestAuthorization] is a
- * no-op returning UNKNOWN. The future iosMain actual wires both
- * to `ATTrackingManager`.
+ * ATT is an Apple-only framework. On Apple targets [status] and
+ * [requestAuthorization] are wired to the real `ATTrackingManager` (read never
+ * prompts; request shows the system prompt). Off-Apple (android/jvm/desktop-native)
+ * [status] reports the wrapper-supplied value if one was set (via
+ * [AttriaxConfig.attStatus] or [setStatus]), otherwise [AttriaxAttStatus.UNKNOWN]
+ * from the platform seam, and [requestAuthorization] is a no-op returning UNKNOWN.
  */
 class AttriaxAttConsent internal constructor(private val engine: Attriax) {
 
     /**
      * Current ATT status: the wrapper-supplied value if one was set, otherwise the
-     * platform seam (UNKNOWN on every currently-built target). Mirrors Flutter's
-     * `getTrackingAuthorizationStatus()`.
+     * platform seam (the real `ATTrackingManager` status on Apple; UNKNOWN off-Apple).
+     * Mirrors Flutter's `getTrackingAuthorizationStatus()`.
      */
     val status: AttriaxAttStatus get() = engine.attStatus
 
@@ -100,9 +100,9 @@ class AttriaxAttConsent internal constructor(private val engine: Attriax) {
     /**
      * Request ATT authorization (Apple prompt). Mirrors Flutter's
      * `requestTrackingAuthorization(timeout:)`. Blocking with an optional
-     * [timeoutMs] — call off the main thread. On every currently-built target this
-     * is a no-op returning [AttriaxAttStatus.UNKNOWN]; the future iosMain actual
-     * shows the real prompt. A resolved (non-UNKNOWN) result is latched as [status].
+     * [timeoutMs] — call off the main thread. On Apple targets this shows the real
+     * `ATTrackingManager` prompt; off-Apple it is a no-op returning
+     * [AttriaxAttStatus.UNKNOWN]. A resolved (non-UNKNOWN) result is latched as [status].
      */
     fun requestAuthorization(timeoutMs: Long? = null): AttriaxAttStatus =
         engine.requestAttAuthorization(timeoutMs)

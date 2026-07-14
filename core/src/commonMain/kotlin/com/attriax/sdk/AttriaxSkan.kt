@@ -49,8 +49,8 @@ class AttriaxSkan internal constructor(private val engine: Attriax) {
         )
 
     /**
-     * Pull the project's configured SKAN conversion-value rules from the backend
-     * (Epic 12.2 CV management). Returns the resolved [AttriaxSkanConversionConfig],
+     * Pull the project's configured SKAN conversion-value (CV) rules from the backend.
+     * Returns the resolved [AttriaxSkanConversionConfig],
      * or `null` when the project has no schema, the token is unknown, or the pull
      * fails (offline / malformed) — it is best-effort and never throws.
      *

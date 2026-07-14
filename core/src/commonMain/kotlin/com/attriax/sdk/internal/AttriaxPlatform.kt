@@ -62,11 +62,15 @@ internal interface AttriaxUncaughtHandlerRegistration {
  *
  *  - androidMain / jvmMain: `Thread.setDefaultUncaughtExceptionHandler` — captures
  *    the previous handler, calls `onFatalCrash(throwable)`, then delegates.
- *  - nativeMain: a COMPILE-ONLY documented placeholder that does NOT install and
- *    returns [AttriaxUncaughtHandlerRegistration.Noop]. Real native capture (iOS
- *    `NSSetUncaughtExceptionHandler` at the Mac; POSIX signal handlers later) lands
- *    with the platform chunk. The common persist/replay + public `recordError`
- *    fatal API still work on native — only the OS-level auto-capture is deferred.
+ *  - appleMain: `NSSetUncaughtExceptionHandler` — captures `NSException`s, invokes
+ *    `onFatalCrash`, then delegates to the previous handler (see
+ *    `AttriaxUncaughtHandler.apple.kt`).
+ *  - desktopNativeMain (mingwX64/linuxX64): NO OS-level capture — returns
+ *    [AttriaxUncaughtHandlerRegistration.Noop] as a deliberate, documented limitation
+ *    (a signal/SEH handler that persists on a dying process is not async-signal-safe;
+ *    see `AttriaxUncaughtHandler.desktop.kt`). The common persist/replay + public
+ *    `recordError` fatal API still work there — only the automatic OS-level capture is
+ *    absent, and the manager logs a one-time info when the flag is on.
  */
 internal expect fun attriaxInstallUncaughtExceptionHandler(
     onFatalCrash: (Throwable) -> Unit,

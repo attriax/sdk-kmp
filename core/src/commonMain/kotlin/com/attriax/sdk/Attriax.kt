@@ -137,18 +137,19 @@ class Attriax internal constructor(
     /**
      * Apple ATT status seam. Reads the current tracking-authorization
      * status WITHOUT prompting. Defaults to the platform `attriaxAttStatus` expect
-     * fun (UNKNOWN on every currently-built target; the future iosMain actual reads
-     * `ATTrackingManager`). Injected so commonTest can substitute a fake. Only
-     * consulted when no wrapper-supplied status is present.
+     * fun (the real `ATTrackingManager` status on Apple; UNKNOWN off-Apple). Injected
+     * so commonTest can substitute a fake. Only consulted when no wrapper-supplied
+     * status is present.
      */
     private val attStatusProvider: () -> AttriaxAttStatus =
         { attriaxAttStatus() },
     /**
      * Apple ATT authorization-request seam. Prompts for authorization
      * (Apple) and returns the resulting status; blocking with an optional timeout.
-     * Defaults to the platform `attriaxRequestAttAuthorization` expect fun (a no-op
-     * returning UNKNOWN off-iOS). Injected so commonTest can assert init invokes it
-     * when [AttriaxConfig.requestTrackingAuthorizationOnInit] is `true`.
+     * Defaults to the platform `attriaxRequestAttAuthorization` expect fun (the real
+     * `ATTrackingManager` prompt on Apple; a no-op returning UNKNOWN off-Apple).
+     * Injected so commonTest can assert init invokes it when
+     * [AttriaxConfig.requestTrackingAuthorizationOnInit] is `true`.
      */
     private val requestAttAuthorizationSeam: (Long?) -> AttriaxAttStatus =
         { timeoutMs -> attriaxRequestAttAuthorization(timeoutMs) },
@@ -283,8 +284,10 @@ class Attriax internal constructor(
     /**
      * Automatic crash reporting. Reuses the engine's crash builder so the
      * replayed/reported crash is the SAME wire shape as the manual [recordError]. The
-     * DEAD [AttriaxConfig.automaticCrashReportingEnabled] flag (default `true`, matching
-     * Flutter) is wired here: when off, no handler installs and no replay runs.
+     * [AttriaxConfig.automaticCrashReportingEnabled] flag (default `true`, matching
+     * Flutter) is wired here: when off, no handler installs and no replay runs. On
+     * targets without an OS-level uncaught hook (desktop-native) the manager logs a
+     * one-time info that auto-capture is unavailable — see its `install()` KDoc.
      */
     private val crashReporting = AttriaxCrashReportingManager(
         enabled = config.automaticCrashReportingEnabled,
@@ -302,6 +305,7 @@ class Attriax internal constructor(
         },
         installUncaughtHandler = installUncaughtExceptionHandler,
         logError = { logger.warn(it) },
+        logInfo = { logger.info(it) },
     )
 
     /**
@@ -1099,8 +1103,8 @@ class Attriax internal constructor(
 
     /**
      * Resolved ATT status: the wrapper-supplied value if one is present, otherwise
-     * the platform seam (UNKNOWN on every currently-built target). Backs
-     * `consent.att.status`.
+     * the platform seam (the real `ATTrackingManager` status on Apple; UNKNOWN
+     * off-Apple). Backs `consent.att.status`.
      */
     internal val attStatus: AttriaxAttStatus get() = wrapperAttStatus ?: attStatusProvider()
 
@@ -1183,8 +1187,8 @@ class Attriax internal constructor(
         skanEngine.updateConversionValue(fineValue, coarseValue, lockWindow)
 
     /**
-     * Best-effort pull of the project's configured SKAN conversion-value rules
-     * (Epic 12.2). GETs `/api/sdk/v1/skan/conversion-config/<projectToken>` via the
+     * Best-effort pull of the project's configured SKAN conversion-value rules.
+     * GETs `/api/sdk/v1/skan/conversion-config/<projectToken>` via the
      * shared [transport] and decodes the api `SdkCvConfigResponse` into
      * [AttriaxSkanConversionConfig]. Backs `skan.fetchConversionConfig`.
      *

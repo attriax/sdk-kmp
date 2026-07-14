@@ -91,7 +91,7 @@ data class AttriaxSkanConfig(
  * The project's configured SKAN conversion-value rules, pulled from the backend by
  * [AttriaxSkan.fetchConversionConfig].
  *
- * Mirrors the api `SdkCvConfigResponse` (Epic 12.2, `cv-rule-transformer.ts`):
+ * Mirrors the api `SdkCvConfigResponse` (`cv-rule-transformer.ts`):
  * `{ schemaVersion, schemaUpdatedAt, enabled, rules[], disclaimer }`. The SDK does
  * NOT compose a conversion value from these rules on its own (that needs the host's
  * per-event/revenue state); it surfaces the ordered rule list so the host can

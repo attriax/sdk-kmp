@@ -43,17 +43,35 @@ internal class AttriaxCrashReportingManager(
     private val installUncaughtHandler:
         (onFatalCrash: (Throwable) -> Unit) -> AttriaxUncaughtHandlerRegistration,
     private val logError: (String) -> Unit,
+    /** Emit an info-level diagnostic (gated behind debug logs). */
+    private val logInfo: (String) -> Unit,
 ) {
     private var registration: AttriaxUncaughtHandlerRegistration? = null
 
     /**
      * Install the OS uncaught-exception handler (idempotent). No-op when crash
-     * reporting is disabled or on the native placeholder (returns [Noop]).
+     * reporting is disabled.
+     *
+     * On targets with no OS-level uncaught-exception hook the seam returns [Noop]
+     * (currently desktop-native: mingwX64/linuxX64 — see `AttriaxUncaughtHandler
+     * .desktop.kt`). When that happens while [enabled] is `true` we log a one-time
+     * info line so the truthful state is visible: the flag is on, but automatic
+     * OS-level crash capture is not active on this target. Manual
+     * [com.attriax.sdk.AttriaxTracking.recordError] (fatal or not) and the
+     * next-launch [replayPendingCrashReport] path still work regardless.
      */
     fun install() {
         if (!enabled) return
         if (registration != null) return
-        registration = installUncaughtHandler { throwable -> onFatalCrash(throwable) }
+        val installed = installUncaughtHandler { throwable -> onFatalCrash(throwable) }
+        registration = installed
+        if (installed === AttriaxUncaughtHandlerRegistration.Noop) {
+            logInfo(
+                "Attriax: automaticCrashReportingEnabled is on, but OS-level crash " +
+                    "auto-capture is not available on this target; manual recordError " +
+                    "and next-launch replay still work.",
+            )
+        }
     }
 
     /** Restore the previous handler (idempotent); called on dispose/reset. */

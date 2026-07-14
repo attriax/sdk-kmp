@@ -51,6 +51,20 @@ data class AttriaxConfig(
     val eventFlushIntervalMs: Long = 60_000L,
     val flushEventsImmediatelyOnFirstLaunch: Boolean = true,
     val collectAdvertisingId: Boolean = true,
+    /**
+     * Whether the SDK installs an OS-level uncaught-exception handler to auto-capture
+     * fatal crashes (Flutter `AttriaxConfig.automaticCrashReportingEnabled`). DEFAULT-ON,
+     * matching Flutter. A captured fatal crash is persisted synchronously and delivered
+     * on the NEXT init (see [com.attriax.sdk.internal.AttriaxCrashReportingManager]).
+     *
+     * Platform coverage of the AUTOMATIC OS-level capture: Android / JVM (`Thread`
+     * default handler) and Apple (`NSSetUncaughtExceptionHandler`). On desktop-native
+     * (Windows/Linux, mingwX64/linuxX64) OS-level auto-capture is NOT active — installing
+     * a safe signal/SEH handler that persists on a dying process is not async-signal-safe,
+     * so it is intentionally omitted; when this flag is on there, the SDK logs a one-time
+     * info line. Manual `recordError` (fatal or not, via the tracking surface) and the
+     * next-launch replay still work on every target regardless.
+     */
     val automaticCrashReportingEnabled: Boolean = true,
     val gdprEnabled: Boolean = false,
     val anonymousTracking: Boolean = true,
@@ -79,8 +93,10 @@ data class AttriaxConfig(
      * opened automatically by the SDK (Flutter `AttriaxConfig
      * .automaticBrowserHandling`, types_session_config.dart:119/186-187). DEFAULT-ON,
      * matching Flutter. When `true` and a resolution carries a `browserAction`, the
-     * SDK opens the URL via the injected [AttriaxBrowserOpener] (an ACTION_VIEW intent
-     * on Android; a documented no-op on jvm/native until desktop browser-open lands).
+     * SDK opens the URL via the injected [AttriaxBrowserOpener]: an ACTION_VIEW intent
+     * on Android, `java.awt.Desktop.browse` on JVM, and the OS default handler on
+     * desktop-native (`ShellExecuteW` on Windows, `xdg-open` on Linux). The pure
+     * engine with no opener wired falls back to [AttriaxBrowserOpener.Unavailable].
      */
     val automaticBrowserHandling: Boolean = true,
     /**
@@ -89,9 +105,10 @@ data class AttriaxConfig(
      * cannot query off-iOS, so a host wrapper (Flutter / Unity / React Native iOS
      * plugin) that already obtained the status via `ATTrackingManager` supplies it
      * here (or at runtime via [AttriaxAttConsent] / [com.attriax.sdk.Attriax]).
-     * `null` (the default) → the engine falls back to the platform ATT seam, which
-     * reports [AttriaxAttStatus.UNKNOWN] on every currently-built target and is
-     * therefore OMITTED from the app-open. A wrapper-supplied non-UNKNOWN status is
+     * `null` (the default) → the engine falls back to the platform ATT seam. On Apple
+     * targets that seam reads the real `ATTrackingManager.trackingAuthorizationStatus`;
+     * off-Apple (Android/JVM/desktop-native) it reports [AttriaxAttStatus.UNKNOWN] and
+     * is therefore OMITTED from the app-open. A wrapper-supplied non-UNKNOWN status is
      * emitted TOP-LEVEL as `attStatus` (mirrors `attestation`).
      */
     val attStatus: AttriaxAttStatus? = null,
@@ -99,9 +116,10 @@ data class AttriaxConfig(
      * Whether the SDK requests Apple ATT authorization on init (Flutter
      * `AttriaxConfig.requestTrackingAuthorizationOnInit`,
      * types_session_config.dart:117/181). DEFAULT-OFF, matching Flutter. When
-     * `true`, [com.attriax.sdk.Attriax.init] invokes the ATT request seam (a no-op
-     * returning [AttriaxAttStatus.UNKNOWN] on every currently-built target; the
-     * future iosMain actual prompts via `ATTrackingManager`).
+     * `true`, [com.attriax.sdk.Attriax.init] invokes the ATT request seam. On Apple
+     * targets that seam shows the real prompt via
+     * `ATTrackingManager.requestTrackingAuthorization`; off-Apple it is a no-op
+     * returning [AttriaxAttStatus.UNKNOWN].
      */
     val requestTrackingAuthorizationOnInit: Boolean = false,
     /**

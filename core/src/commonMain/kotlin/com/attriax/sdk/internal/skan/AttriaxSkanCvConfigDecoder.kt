@@ -8,8 +8,8 @@ import com.attriax.sdk.AttriaxSkanCvRule
 import com.attriax.sdk.AttriaxSkanCvValue
 
 /**
- * Decodes the api `SdkCvConfigResponse` wire shape (Epic 12.2
- * `cv-rule-transformer.ts`) into [AttriaxSkanConversionConfig].
+ * Decodes the api `SdkCvConfigResponse` wire shape (`cv-rule-transformer.ts`)
+ * into [AttriaxSkanConversionConfig].
  *
  * Input is the already-envelope-unwrapped, [com.attriax.sdk.internal.json.Json]
  * -decoded tree (`Map`/`List`/`String`/`Long`/`Double`/`Boolean`/null). Pure and
