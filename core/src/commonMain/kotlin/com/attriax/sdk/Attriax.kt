@@ -540,17 +540,11 @@ class Attriax internal constructor(
         // app-open response is captured as the session referrer (referrer).
         referrerCoordinator.attach()
 
-        // Apple ATT: when requested, resolve the tracking-authorization
-        // status BEFORE the app-open builds so a resolved status rides the open. The
-        // seam is a no-op returning UNKNOWN on every currently-built target (nothing
-        // latched, so the open omits `attStatus`); the future iosMain actual prompts
-        // via ATTrackingManager. A wrapper that drives ATT natively instead supplies
-        // the status via AttriaxConfig.attStatus / consent.att.setStatus and leaves
-        // this flag off.
-        if (config.requestTrackingAuthorizationOnInit) {
-            requestAttAuthorization(config.trackingAuthorizationStatusTimeoutMs)
-        }
-
+        // Apple ATT-on-init is resolved INSIDE scheduleAppOpenIfNeeded, on the
+        // background executor, BEFORE the open builds — so the resolved status still
+        // rides the open WITHOUT blocking init() on the (blocking) ATT prompt. A
+        // wrapper that drives ATT natively supplies the status via
+        // AttriaxConfig.attStatus / consent.att.setStatus and leaves the flag off.
         scheduleAppOpenIfNeeded()
 
         // Apple Search Ads (AdServices) token capture — iOS-only,
@@ -1402,12 +1396,21 @@ class Attriax internal constructor(
         // referrer) so there is zero behavior change for the common case. Otherwise
         // resolve both on the background executor before building the open.
         val referrerNeedsFetch = installReferrer.needsFetch()
-        if (!attestationManager.isEnabled && !referrerNeedsFetch) {
+        // Apple ATT-on-init: resolving the tracking-authorization status is BLOCKING
+        // (it awaits the system prompt), so — like referrer/attestation capture — it
+        // must run off the init thread and complete BEFORE the open builds so the
+        // resolved status rides the open, WITHOUT blocking init().
+        val attNeedsResolve = config.requestTrackingAuthorizationOnInit
+        if (!attestationManager.isEnabled && !referrerNeedsFetch && !attNeedsResolve) {
             buildAndEnqueueAppOpen(attestation = null, referrer = installReferrer.cachedDetails())
             return
         }
         if (flushExecutor.isShutdown) return
         flushExecutor.execute {
+            if (attNeedsResolve) {
+                // Blocking ATT prompt — off the init thread; gates the open, not init().
+                requestAttAuthorization(config.trackingAuthorizationStatusTimeoutMs)
+            }
             // Both resolvers degrade to null internally and never throw; the
             // belt-and-braces catch guarantees the open is still built + enqueued.
             val referrer = if (referrerNeedsFetch) {
