@@ -523,6 +523,15 @@ class Attriax internal constructor(
      *  3. context snapshot is already captured (injected),
      *  4. mark isInitialized,
      *  5. schedule the app-open ONCE per runtime (best-effort, non-blocking).
+     *
+     * INVARIANT — `init()` MUST NOT BLOCK. It performs only bounded, LOCAL work
+     * (persistence reads/writes, in-memory wiring) and then SCHEDULES everything
+     * heavy off the calling thread. Nothing network, nothing that waits on a system
+     * prompt, and no blocking I/O may run on the init thread: the app-open POST,
+     * install-referrer fetch, attestation, ATT resolution, ASA capture and consent
+     * sync are ALL dispatched to the background executor / scheduler. `init()` returns
+     * fast; the async work — including ATT — may gate `/open`, but NEVER `init()`.
+     * Any future addition here must preserve this: if it can block, schedule it.
      */
     fun init() {
         if (!initialized.compareAndSet(false, true)) return
