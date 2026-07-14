@@ -30,7 +30,7 @@ class AttriaxDispatchContractTest {
         "getGdprConsentState", "getGdprConsentValues", "getIsWaitingForGdprConsent",
         "needsGdprConsent", "requestGdprDataErasure",
         "getAttStatus", "setAttStatus", "requestAttAuthorization",
-        "getDoNotSell", "setDoNotSell", "getUsPrivacy", "setUsPrivacy",
+        "getDoNotSell", "setDoNotSell", "getUsPrivacy", "setUsPrivacy", "setCcpaConsent",
         "handleIncomingLink", "getLatestDeepLink", "getInitialDeepLink",
         "getRawInitialDeepLink", "getInitialDeepLinkResolved", "recordDeepLink",
         "getOriginalInstallReferrer", "getReinstallReferrer", "getRawInstallReferrer",
@@ -49,7 +49,7 @@ class AttriaxDispatchContractTest {
     fun methodSetHasNoDuplicatesOrBlanks() {
         // A `Set` already dedups; assert the declared literal count matches so a
         // duplicate literal in the source is caught rather than silently collapsed.
-        assertEquals(58, AttriaxDispatchContract.METHODS.size)
+        assertEquals(59, AttriaxDispatchContract.METHODS.size)
         assertEquals(0, AttriaxDispatchContract.METHODS.count { it.isBlank() })
     }
 }

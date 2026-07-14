@@ -294,6 +294,16 @@ public object AttriaxDispatcher {
                 engine.consent.ccpa.setUsPrivacy(args.string("usPrivacy"))
                 ok(null)
             }
+            "setCcpaConsent" -> {
+                // Paired setter — CLEARS the omitted field (mirrors the wrappers'
+                // ccpa.set), unlike the two individual setters above which leave the
+                // other field untouched.
+                engine.consent.ccpa.set(
+                    doNotSell = args.boolOrNull("doNotSell"),
+                    usPrivacy = args.string("usPrivacy"),
+                )
+                ok(null)
+            }
 
             // -------- deep links --------
             "handleIncomingLink" -> {

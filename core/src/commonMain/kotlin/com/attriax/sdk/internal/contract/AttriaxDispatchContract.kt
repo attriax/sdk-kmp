@@ -58,7 +58,7 @@ internal object AttriaxDispatchContract {
         "getAttStatus", "setAttStatus", "requestAttAuthorization",
 
         // -------- CCPA --------
-        "getDoNotSell", "setDoNotSell", "getUsPrivacy", "setUsPrivacy",
+        "getDoNotSell", "setDoNotSell", "getUsPrivacy", "setUsPrivacy", "setCcpaConsent",
 
         // -------- deep links --------
         "handleIncomingLink", "getLatestDeepLink", "getInitialDeepLink",

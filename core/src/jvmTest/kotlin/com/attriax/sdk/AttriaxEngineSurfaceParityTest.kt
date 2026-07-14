@@ -95,9 +95,9 @@ class AttriaxEngineSurfaceParityTest {
                 "getUsPrivacy" to "getUsPrivacy",
                 "setDoNotSell" to "setDoNotSell",
                 "setUsPrivacy" to "setUsPrivacy",
+                "set" to "setCcpaConsent",
             ),
-            // Combined convenience setter over the two atomic C-ABI setters.
-            notDispatched = setOf("set"),
+            notDispatched = emptySet(),
         ),
         FacadeSpec(
             AttriaxDeepLinks::class.java,
