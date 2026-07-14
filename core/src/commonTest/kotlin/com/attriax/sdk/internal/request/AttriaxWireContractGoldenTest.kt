@@ -56,7 +56,7 @@ class AttriaxWireContractGoldenTest {
         assertEquals(
             """{"projectToken":"pt","platform":"android","deviceId":"dev-1",""" +
                 """"deviceIdSource":"android_ssaid","isFirstLaunch":true,""" +
-                """"sdk":{"apiVersion":"v1","packageVersion":"0.5.0"},""" +
+                """"sdk":{"apiVersion":"v1","packageVersion":"0.6.0"},""" +
                 """"app":{"version":"1.0.0","buildNumber":"10","packageName":"com.attriax.demo"},""" +
                 """"device":{"model":"Pixel 8","manufacturer":"Google","osVersion":"14",""" +
                 """"timezone":"UTC","language":"en-US"}}""",
@@ -82,7 +82,7 @@ class AttriaxWireContractGoldenTest {
         assertEquals(
             """{"projectToken":"pt","platform":"android","deviceId":"dev-1",""" +
                 """"deviceIdSource":"android_ssaid","isFirstLaunch":true,""" +
-                """"sdk":{"apiVersion":"v1","packageVersion":"0.5.0"},""" +
+                """"sdk":{"apiVersion":"v1","packageVersion":"0.6.0"},""" +
                 """"app":{"version":"1.0.0","buildNumber":"10","packageName":"com.attriax.demo"},""" +
                 """"device":{"model":"Pixel 8","manufacturer":"Google","osVersion":"14",""" +
                 """"timezone":"UTC","language":"en-US"},""" +
@@ -224,14 +224,14 @@ class AttriaxWireContractGoldenTest {
             appBuildNumber = "10",
             appPackageName = "com.attriax.demo",
             sdkApiVersion = "v1",
-            sdkPackageVersion = "0.5.0",
+            sdkPackageVersion = "0.6.0",
         )
         assertEquals(
             """{"projectToken":"pt","kind":"start","sessionId":"sess-1","deviceId":"dev-1",""" +
                 """"deviceIdSource":"android_ssaid","sessionRelativeTimeMs":0,""" +
                 """"clientOccurredAt":"2026-07-13T00:00:00.000Z","platform":"android","locale":"en-US",""" +
                 """"isFirstLaunch":true,"appVersion":"1.0.0","appBuildNumber":"10",""" +
-                """"appPackageName":"com.attriax.demo","sdkApiVersion":"v1","sdkPackageVersion":"0.5.0"}""",
+                """"appPackageName":"com.attriax.demo","sdkApiVersion":"v1","sdkPackageVersion":"0.6.0"}""",
             Json.encode(session.body),
         )
     }
@@ -260,7 +260,7 @@ class AttriaxWireContractGoldenTest {
                 """"source":"manual","clientOccurredAt":"2026-07-13T00:00:00.000Z","platform":"android",""" +
                 """"isFatal":false,"exceptionType":"RuntimeException","message":"boom","stackTrace":"line1",""" +
                 """"isFirstLaunch":false,"locale":"en-US","appVersion":"1.0.0","appBuildNumber":"10",""" +
-                """"appPackageName":"com.attriax.demo","sdkApiVersion":"v1","sdkPackageVersion":"0.5.0"}""",
+                """"appPackageName":"com.attriax.demo","sdkApiVersion":"v1","sdkPackageVersion":"0.6.0"}""",
             Json.encode(crash.body),
         )
     }

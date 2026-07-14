@@ -52,7 +52,7 @@ class AttriaxSessionManagerTest {
         appBuildNumber = "1",
         locale = "en-US",
         isFirstLaunch = isFirstLaunch,
-        sdkPackageVersion = "0.5.0",
+        sdkPackageVersion = "0.6.0",
     )
 
     // ---- S3: heartbeat interval selection ----

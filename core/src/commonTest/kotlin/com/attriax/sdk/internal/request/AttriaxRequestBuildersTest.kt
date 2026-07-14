@@ -72,7 +72,7 @@ class AttriaxRequestBuildersTest {
         @Suppress("UNCHECKED_CAST")
         val sdk = body["sdk"] as Map<String, Any?>
         assertEquals("v1", sdk["apiVersion"])
-        assertEquals("0.5.0", sdk["packageVersion"])
+        assertEquals("0.6.0", sdk["packageVersion"])
 
         @Suppress("UNCHECKED_CAST")
         val app = body["app"] as Map<String, Any?>
@@ -191,7 +191,7 @@ class AttriaxRequestBuildersTest {
         val sdk = open.body["sdk"] as Map<String, Any?>
         // Wire path: sdk.metadata (mirrors Flutter AttriaxSdkSnapshot.metadata).
         assertEquals("v1", sdk["apiVersion"])
-        assertEquals("0.5.0", sdk["packageVersion"])
+        assertEquals("0.6.0", sdk["packageVersion"])
         @Suppress("UNCHECKED_CAST")
         val metadata = sdk["metadata"] as Map<String, Any?>
         assertEquals("unity", metadata["integration"])

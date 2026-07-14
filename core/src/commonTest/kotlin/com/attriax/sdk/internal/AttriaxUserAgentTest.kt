@@ -9,8 +9,8 @@ class AttriaxUserAgentTest {
 
     @Test
     fun formatsRealSdkUserAgentWithSuffix() {
-        val ua = AttriaxUserAgent.format(osVersion = "14", descriptor = "com.example.app", packageVersion = "0.5.0")
-        assertEquals("attriax-android-sdk/0.5.0 (Android 14; com.example.app)", ua)
+        val ua = AttriaxUserAgent.format(osVersion = "14", descriptor = "com.example.app", packageVersion = "0.6.0")
+        assertEquals("attriax-android-sdk/0.6.0 (Android 14; com.example.app)", ua)
     }
 
     @Test
@@ -29,7 +29,7 @@ class AttriaxUserAgentTest {
 
     @Test
     fun fallsBackToUnknownForBlankInputs() {
-        val ua = AttriaxUserAgent.format(osVersion = "", descriptor = "", packageVersion = "0.5.0")
-        assertEquals("attriax-android-sdk/0.5.0 (Android unknown; unknown)", ua)
+        val ua = AttriaxUserAgent.format(osVersion = "", descriptor = "", packageVersion = "0.6.0")
+        assertEquals("attriax-android-sdk/0.6.0 (Android unknown; unknown)", ua)
     }
 }

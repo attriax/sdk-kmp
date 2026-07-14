@@ -8,7 +8,7 @@ class AttriaxSdkTest {
     @Test
     fun exposesParityVersion() {
         // Mirrors the Flutter reference package version.
-        assertEquals("0.5.0", AttriaxVersion.PACKAGE_VERSION)
+        assertEquals("0.6.0", AttriaxVersion.PACKAGE_VERSION)
         assertEquals("v1", AttriaxVersion.API_VERSION)
     }
 }

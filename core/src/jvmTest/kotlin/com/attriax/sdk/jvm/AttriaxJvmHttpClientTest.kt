@@ -66,7 +66,7 @@ class AttriaxJvmHttpClientTest {
 
         val client = AttriaxJvmHttpClient(
             baseUrl = baseUrl(),
-            userAgent = "attriax-jvm-sdk/0.5.0 (Windows 11 10.0; com.example.app)",
+            userAgent = "attriax-jvm-sdk/0.6.0 (Windows 11 10.0; com.example.app)",
             requestTimeoutMs = 5_000L,
         )
 
@@ -75,7 +75,7 @@ class AttriaxJvmHttpClientTest {
         assertEquals("POST", capturedMethod.get())
         assertEquals("""{"event":"open"}""", capturedBody.get())
         assertEquals("application/json", capturedContentType.get())
-        assertEquals("attriax-jvm-sdk/0.5.0 (Windows 11 10.0; com.example.app)", capturedUserAgent.get())
+        assertEquals("attriax-jvm-sdk/0.6.0 (Windows 11 10.0; com.example.app)", capturedUserAgent.get())
         assertEquals(200, response.statusCode)
         // The `{data:...}` envelope is unwrapped to the inner value, re-encoded.
         assertEquals("""{"ok":true,"n":7}""", response.body)
@@ -86,7 +86,7 @@ class AttriaxJvmHttpClientTest {
         server.createContext("/api/raw") { exchange ->
             exchange.respond(200, """{"noEnvelope":1}""")
         }
-        val client = AttriaxJvmHttpClient(baseUrl(), "attriax-jvm-sdk/0.5.0 (x; y)", 5_000L)
+        val client = AttriaxJvmHttpClient(baseUrl(), "attriax-jvm-sdk/0.6.0 (x; y)", 5_000L)
 
         val response = client.post("/api/raw", "{}")
 
@@ -98,7 +98,7 @@ class AttriaxJvmHttpClientTest {
         server.createContext("/api/fail") { exchange ->
             exchange.respond(500, """{"error":"boom"}""", header = "X-Attriax-Test" to "yes")
         }
-        val client = AttriaxJvmHttpClient(baseUrl(), "attriax-jvm-sdk/0.5.0 (x; y)", 5_000L)
+        val client = AttriaxJvmHttpClient(baseUrl(), "attriax-jvm-sdk/0.6.0 (x; y)", 5_000L)
 
         val ex = assertFailsWith<AttriaxHttpException> {
             client.post("/api/fail", "{}")
@@ -117,7 +117,7 @@ class AttriaxJvmHttpClientTest {
             Thread.sleep(2_000L)
             exchange.respond(200, """{"data":{}}""")
         }
-        val client = AttriaxJvmHttpClient(baseUrl(), "attriax-jvm-sdk/0.5.0 (x; y)", 300L)
+        val client = AttriaxJvmHttpClient(baseUrl(), "attriax-jvm-sdk/0.6.0 (x; y)", 300L)
 
         assertFailsWith<AttriaxTimeoutException> {
             client.post("/api/slow", "{}")
@@ -131,7 +131,7 @@ class AttriaxJvmHttpClientTest {
         val deadPort = socket.localPort
         socket.close()
 
-        val client = AttriaxJvmHttpClient("http://127.0.0.1:$deadPort", "attriax-jvm-sdk/0.5.0 (x; y)", 2_000L)
+        val client = AttriaxJvmHttpClient("http://127.0.0.1:$deadPort", "attriax-jvm-sdk/0.6.0 (x; y)", 2_000L)
 
         assertFailsWith<AttriaxTransportException> {
             client.post("/api/x", "{}")

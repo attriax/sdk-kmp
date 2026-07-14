@@ -29,7 +29,7 @@ class AttriaxSessionSnapshotStoreTest {
         appBuildNumber = "42",
         locale = "en-US",
         isFirstLaunch = true,
-        sdkPackageVersion = "0.5.0",
+        sdkPackageVersion = "0.6.0",
     )
 
     @Test

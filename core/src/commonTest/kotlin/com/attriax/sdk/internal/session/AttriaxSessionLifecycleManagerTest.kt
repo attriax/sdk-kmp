@@ -63,7 +63,7 @@ class AttriaxSessionLifecycleManagerTest {
     private fun identity() = AttriaxSessionIdentity(
         deviceId = "d1", platform = "android", appPackageName = "com.example",
         appVersion = "1.0", appBuildNumber = "1", locale = "en-US",
-        isFirstLaunch = false, sdkPackageVersion = "0.5.0",
+        isFirstLaunch = false, sdkPackageVersion = "0.6.0",
     )
 
     private class Fixture {
