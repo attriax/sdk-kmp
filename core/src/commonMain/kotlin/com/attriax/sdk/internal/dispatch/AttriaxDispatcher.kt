@@ -23,8 +23,15 @@ import kotlinx.atomicfu.locks.synchronized
  *
  * Transport failures are classified into [AttriaxFailure] so the retry policy
  * stays pure; the dispatcher only owns orchestration + persistence.
+ *
+ * `internal` visibility is load-bearing on Apple: this engine-plumbing class shares its
+ * simple name with the PUBLIC command table [com.attriax.sdk.AttriaxDispatcher] object.
+ * Kotlin/Native's Obj-C export cannot emit two `AttriaxCoreAttriaxDispatcher` classes,
+ * so leaving this one `public` silently drops the command object (+ its
+ * `AttriaxDispatchResult`) from the XCFramework — breaking every Swift binding that
+ * forwards to `AttriaxDispatcher.execute`. This is only referenced by [Attriax] in-module.
  */
-class AttriaxDispatcher(
+internal class AttriaxDispatcher(
     private val queue: AttriaxQueueManager,
     private val transport: HttpClient,
     private val clock: AttriaxClock,
