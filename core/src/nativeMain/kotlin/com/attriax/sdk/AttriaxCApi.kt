@@ -2,7 +2,6 @@
 
 package com.attriax.sdk
 
-import com.attriax.sdk.internal.consent.AttriaxConsentStateWire
 import com.attriax.sdk.internal.json.Json
 import kotlin.concurrent.Volatile
 import kotlin.experimental.ExperimentalNativeApi
@@ -227,309 +226,19 @@ fun attriaxDestroy(handle: COpaquePointer?) {
 // ---------------------------------------------------------------------------
 
 /**
- * The uniform method router. Returns a result-JSON envelope STRING. Wired hot-path
- * + broad-delegation methods reach the engine for real; anything intentionally not
- * wired returns `{"ok":false,"error":"unimplemented:<method>"}`.
+ * Thin adapter over the canonical [AttriaxDispatcher.execute] command table: forward
+ * the decoded [args] and JSON-encode the canonical result into the SAME `{"ok":…}`
+ * envelope this boundary has always produced. All method routing + result-shaping now
+ * lives in `commonMain` so every binding shares one dispatch table; this function only
+ * bridges the C-ABI JSON envelope semantics (`Ok` → `okEnvelope`, `Err`/`Unimplemented`
+ * → `errEnvelope`, with the `unimplemented:` prefix preserved).
  */
-private fun route(handle: AttriaxNativeHandle, method: String, args: Map<String, Any?>): String {
-    val engine = handle.engine
-    return when (method) {
-        // -------- lifecycle --------
-        "init" -> { engine.init(); okEnvelope(null) }
-        "reset" -> { engine.reset(); okEnvelope(null) }
-        "dispose" -> { engine.dispose(); okEnvelope(null) }
-        "flush" -> { engine.flush(); okEnvelope(null) }
-
-        // -------- engine state getters --------
-        "getDeviceId" -> okEnvelope(engine.deviceId)
-        "getIsFirstLaunch" -> okEnvelope(engine.isFirstLaunch)
-        "getIsInitialized" -> okEnvelope(engine.isInitialized)
-        "getIsSynchronized" -> okEnvelope(engine.synchronization.isSynchronized)
-        "getSynchronizationState" -> okEnvelope(engine.synchronization.state.wire())
-        "getSdkSnapshot" -> okEnvelope(sdkSnapshotMap(engine.sdkSnapshot))
-        "getEnabled" -> okEnvelope(engine.enabled)
-        "setEnabled" -> { engine.enabled = args.boolOr("enabled", true); okEnvelope(null) }
-        "getAnonymousTracking" -> okEnvelope(engine.anonymousTrackingEnabled)
-        "setAnonymousTracking" -> {
-            engine.anonymousTrackingEnabled = args.boolOr("enabled", true)
-            okEnvelope(null)
-        }
-
-        // -------- tracking / revenue --------
-        "recordEvent" -> {
-            val name = args.string("name") ?: return errEnvelope("missing:name")
-            engine.tracking.recordEvent(
-                name = name,
-                eventData = args.mapOrNull("eventData"),
-                flushImmediately = args.boolOr("flushImmediately", false),
-            )
-            okEnvelope(null)
-        }
-        "recordPageView" -> {
-            val pageName = args.string("pageName") ?: return errEnvelope("missing:pageName")
-            engine.tracking.recordPageView(
-                pageName = pageName,
-                pageClass = args.string("pageClass"),
-                pageTitle = args.string("pageTitle"),
-                previousPageName = args.string("previousPageName"),
-                parameters = args.mapOrNull("parameters"),
-                source = args.stringOr("source", "manual"),
-                flushImmediately = args.boolOr("flushImmediately", false),
-            )
-            okEnvelope(null)
-        }
-        "recordPurchase" -> {
-            engine.tracking.recordPurchase(
-                revenue = args.doubleOr("revenue", 0.0),
-                currency = args.stringOr("currency", "USD"),
-                revenueInMicros = args.boolOr("revenueInMicros", false),
-                purchaseType = args.string("purchaseType"),
-                productId = args.string("productId"),
-                transactionId = args.string("transactionId"),
-                originalTransactionId = args.string("originalTransactionId"),
-                validationProvider = args.string("validationProvider"),
-                validationEnvironment = args.string("validationEnvironment"),
-                purchaseToken = args.string("purchaseToken"),
-                receiptData = args.string("receiptData"),
-                signedPayload = args.string("signedPayload"),
-                receiptSignature = args.string("receiptSignature"),
-                isRenewal = args.boolOrNull("isRenewal"),
-                quantity = args.intOr("quantity", 1),
-                store = args.string("store"),
-                packageName = args.string("packageName"),
-                voided = args.boolOrNull("voided"),
-                test = args.boolOrNull("test"),
-                validationId = args.string("validationId"),
-                metadata = args.mapOrNull("metadata"),
-                flushImmediately = args.boolOr("flushImmediately", true),
-            )
-            okEnvelope(null)
-        }
-        "recordRefund" -> {
-            engine.tracking.recordRefund(
-                revenue = args.doubleOr("revenue", 0.0),
-                currency = args.stringOr("currency", "USD"),
-                revenueInMicros = args.boolOr("revenueInMicros", false),
-                purchaseType = args.string("purchaseType"),
-                productId = args.string("productId"),
-                transactionId = args.string("transactionId"),
-                originalTransactionId = args.string("originalTransactionId"),
-                quantity = args.intOr("quantity", 1),
-                store = args.string("store"),
-                packageName = args.string("packageName"),
-                voided = args.boolOrNull("voided"),
-                test = args.boolOrNull("test"),
-                reason = args.string("reason"),
-                metadata = args.mapOrNull("metadata"),
-                flushImmediately = args.boolOr("flushImmediately", true),
-            )
-            okEnvelope(null)
-        }
-        "recordAdRevenue" -> {
-            engine.tracking.recordAdRevenue(
-                revenue = args.doubleOr("revenue", 0.0),
-                currency = args.stringOr("currency", "USD"),
-                revenueInMicros = args.boolOr("revenueInMicros", false),
-                adNetwork = args.string("adNetwork"),
-                adFormat = args.string("adFormat"),
-                adType = args.string("adType"),
-                adPlacement = args.string("adPlacement"),
-                test = args.boolOrNull("test"),
-                metadata = args.mapOrNull("metadata"),
-                flushImmediately = args.boolOr("flushImmediately", true),
-            )
-            okEnvelope(null)
-        }
-        "recordAdEvent" -> {
-            val type = parseAdEventType(args.string("type"))
-                ?: return errEnvelope("invalid:type")
-            engine.tracking.recordAdEvent(
-                type = type,
-                adNetwork = args.string("adNetwork"),
-                mediationNetwork = args.string("mediationNetwork"),
-                adUnitId = args.string("adUnitId"),
-                adPlacement = args.string("adPlacement"),
-                adFormat = args.string("adFormat"),
-                adType = args.string("adType"),
-                failureReason = args.string("failureReason"),
-                loadLatencyMs = args.doubleOrNull("loadLatencyMs"),
-                rewardType = args.string("rewardType"),
-                rewardAmount = args.doubleOrNull("rewardAmount"),
-                test = args.boolOrNull("test"),
-                metadata = args.mapOrNull("metadata"),
-                flushImmediately = args.boolOr("flushImmediately", true),
-            )
-            okEnvelope(null)
-        }
-        "recordError" -> {
-            val message = args.string("message") ?: args.string("errorMessage") ?: ""
-            engine.tracking.recordError(
-                error = AttriaxHostError(message),
-                stackTrace = args.string("stackTrace"),
-                fatal = args.boolOr("fatal", false),
-                source = args.stringOr("source", "manual"),
-                reason = args.string("reason"),
-                metadata = args.mapOrNull("metadata"),
-            )
-            okEnvelope(null)
-        }
-
-        // -------- notifications --------
-        "recordNotification" -> {
-            val type = parseNotificationType(args.string("type"))
-                ?: return errEnvelope("invalid:type")
-            val notificationId = args.string("notificationId")
-                ?: return errEnvelope("missing:notificationId")
-            engine.tracking.recordNotification(
-                type = type,
-                notificationId = notificationId,
-                linkId = args.string("linkId"),
-                campaignId = args.string("campaignId"),
-                title = args.string("title"),
-                source = parseNotificationSource(args.string("source")),
-                payload = args.mapOrNull("payload"),
-                metadata = args.mapOrNull("metadata"),
-                flushImmediately = args.boolOr("flushImmediately", false),
-            )
-            okEnvelope(null)
-        }
-
-        // -------- identify / user --------
-        "setUser" -> {
-            engine.tracking.setUser(userId = args.string("userId"), userName = args.string("userName"))
-            okEnvelope(null)
-        }
-        "setUserProperty" -> {
-            val name = args.string("name") ?: return errEnvelope("missing:name")
-            engine.tracking.setUserProperty(name, args["value"])
-            okEnvelope(null)
-        }
-        "setUserProperties" -> {
-            engine.tracking.setUserProperties(args.mapOrNull("properties") ?: emptyMap())
-            okEnvelope(null)
-        }
-        "clearUserProperties" -> {
-            engine.tracking.clearUserProperties(args.stringListOrNull("propertyNames"))
-            okEnvelope(null)
-        }
-        "registerFirebaseMessagingToken" -> {
-            engine.tracking.registerFirebaseMessagingToken(args.string("token"), args.mapOrNull("metadata"))
-            okEnvelope(null)
-        }
-        "registerApplePushToken" -> {
-            engine.tracking.registerApplePushToken(args.string("token"), args.mapOrNull("metadata"))
-            okEnvelope(null)
-        }
-
-        // -------- GDPR consent --------
-        "setGdprConsent" -> {
-            engine.consent.gdpr.setConsent(
-                analytics = args.boolOr("analytics", false),
-                attribution = args.boolOr("attribution", false),
-                adEvents = args.boolOr("adEvents", false),
-            )
-            okEnvelope(null)
-        }
-        "setGdprConsentNotRequired" -> { engine.consent.gdpr.setNotRequired(); okEnvelope(null) }
-        "resetGdprConsent" -> { engine.consent.gdpr.reset(); okEnvelope(null) }
-        "getGdprConsentState" -> okEnvelope(AttriaxConsentStateWire.toWire(engine.consent.gdpr.state))
-        "getGdprConsentValues" -> okEnvelope(engine.consent.gdpr.values?.let { gdprValuesMap(it) })
-        "getIsWaitingForGdprConsent" -> okEnvelope(engine.consent.gdpr.isWaitingForConsent)
-        "needsGdprConsent" -> okEnvelope(engine.consent.gdpr.needsConsent(args.boolOr("localOnly", false)))
-        "requestGdprDataErasure" -> { engine.consent.gdpr.requestDataErasure(); okEnvelope(null) }
-
-        // -------- Apple ATT --------
-        "getAttStatus" -> okEnvelope(engine.consent.att.status.wireValue)
-        "setAttStatus" -> {
-            val status = parseAttStatus(args.string("status"))
-                ?: return errEnvelope("invalid:status")
-            engine.consent.att.setStatus(status)
-            okEnvelope(null)
-        }
-        "requestAttAuthorization" -> {
-            val result = engine.consent.att.requestAuthorization(args.longOrNull("timeoutMs"))
-            okEnvelope(result.wireValue)
-        }
-
-        // -------- CCPA --------
-        "getDoNotSell" -> okEnvelope(engine.consent.ccpa.doNotSell)
-        "setDoNotSell" -> {
-            engine.consent.ccpa.setDoNotSell(args.boolOrNull("doNotSell"))
-            okEnvelope(null)
-        }
-        "getUsPrivacy" -> okEnvelope(engine.consent.ccpa.usPrivacy)
-        "setUsPrivacy" -> {
-            engine.consent.ccpa.setUsPrivacy(args.string("usPrivacy"))
-            okEnvelope(null)
-        }
-
-        // -------- deep links --------
-        "handleIncomingLink" -> {
-            val uri = args.string("uri") ?: return errEnvelope("missing:uri")
-            engine.deepLinks.handleUri(uri, isInitialLink = args.boolOr("isInitialLink", false))
-            okEnvelope(null)
-        }
-        "getLatestDeepLink" -> okEnvelope(engine.deepLinks.latestDeepLink?.let { deepLinkEventMap(it) })
-        "getInitialDeepLink" -> okEnvelope(engine.deepLinks.initialDeepLink?.let { deepLinkEventMap(it) })
-        "getRawInitialDeepLink" ->
-            okEnvelope(engine.deepLinks.rawInitialDeepLink?.let { rawDeepLinkEventMap(it) })
-        "getInitialDeepLinkResolved" -> okEnvelope(engine.deepLinks.initialDeepLinkResolved)
-        "recordDeepLink" -> {
-            val uri = args.string("uri") ?: return errEnvelope("missing:uri")
-            val event = engine.deepLinks.recordDeepLink(
-                uri = uri,
-                metadata = args.mapOrNull("metadata"),
-                source = args.stringOr("source", "manual"),
-            )
-            okEnvelope(event?.let { deepLinkEventMap(it) })
-        }
-
-        // -------- referrer --------
-        "getOriginalInstallReferrer" ->
-            okEnvelope(engine.referrer.getOriginalInstallReferrer()?.let { installReferrerMap(it) })
-        "getReinstallReferrer" ->
-            okEnvelope(engine.referrer.getReinstallReferrer()?.let { installReferrerMap(it) })
-        "getRawInstallReferrer" -> okEnvelope(engine.referrer.getRawInstallReferrer())
-        "getLatestDeepLinkReferrer" ->
-            okEnvelope(engine.referrer.getLatestDeepLinkReferrer()?.let { deepLinkReferrerMap(it) })
-        "getSessionReferrer" ->
-            okEnvelope(engine.referrer.getSessionReferrer()?.let { deepLinkReferrerMap(it) })
-
-        // -------- SKAdNetwork --------
-        "getSkanState" -> okEnvelope(engine.skan.state?.let { skanStateMap(it) })
-        "updateSkanConversionValue" -> {
-            val result = engine.skan.updateConversionValue(
-                fineValue = args.intOr("fineValue", 0),
-                coarseValue = parseCoarseValue(args.string("coarseValue")),
-                lockWindow = args.boolOr("lockWindow", false),
-            )
-            okEnvelope(skanUpdateResultMap(result))
-        }
-
-        // -------- Apple Search Ads --------
-        "submitAsaToken" -> {
-            val token = args.string("token") ?: return errEnvelope("missing:token")
-            engine.submitAsaToken(token)
-            okEnvelope(null)
-        }
-
-        // -------- receipt validation --------
-        "validateReceipt" -> {
-            val receipt = args.string("receipt") ?: return errEnvelope("missing:receipt")
-            val result = engine.validateReceipt(
-                receipt = receipt,
-                test = args.boolOr("test", false),
-                provider = args.string("provider"),
-                environment = args.string("environment"),
-                productId = args.string("productId"),
-                transactionId = args.string("transactionId"),
-            )
-            okEnvelope(receiptValidationMap(result))
-        }
-
-        else -> errEnvelope("unimplemented:$method")
+private fun route(handle: AttriaxNativeHandle, method: String, args: Map<String, Any?>): String =
+    when (val result = AttriaxDispatcher.execute(handle.engine, method, args)) {
+        is AttriaxDispatchResult.Ok -> okEnvelope(result.value)
+        is AttriaxDispatchResult.Err -> errEnvelope(result.message)
+        is AttriaxDispatchResult.Unimplemented -> errEnvelope("unimplemented:${result.method}")
     }
-}
 
 // ---------------------------------------------------------------------------
 //  Config construction from JSON
@@ -614,111 +323,13 @@ private fun buildDeviceContext(d: Map<String, Any?>?): AttriaxDeviceContext? {
 }
 
 // ---------------------------------------------------------------------------
-//  Result marshaling (engine values → JSON-friendly maps)
+//  Event stream JSON (for the C callback)
 // ---------------------------------------------------------------------------
-
-private fun sdkSnapshotMap(s: AttriaxSdkSnapshot): Map<String, Any?> = mapOf(
-    "apiVersion" to s.apiVersion,
-    "packageVersion" to s.packageVersion,
-    "metadata" to s.metadata,
-)
-
-private fun gdprValuesMap(v: com.attriax.sdk.internal.consent.AttriaxGdprConsentValues): Map<String, Any?> = mapOf(
-    "analytics" to v.analytics,
-    "attribution" to v.attribution,
-    "adEvents" to v.adEvents,
-)
-
-private fun deepLinkEventMap(e: AttriaxDeepLinkEvent): Map<String, Any?> = mapOf(
-    "uri" to e.uri.raw,
-    "clickedAtMs" to e.clickedAtMs,
-    "consumedAtMs" to e.consumedAtMs,
-    "found" to e.found,
-    "trigger" to e.trigger.wire(),
-    "isAttriaxSubDomain" to e.isAttriaxSubDomain,
-    "status" to e.status.wire(),
-    "data" to e.data,
-    "utm" to e.utm,
-    "browserAction" to e.browserAction?.let { browserActionMap(it) },
-    "handledBySdk" to e.handledBySdk,
-)
-
-private fun rawDeepLinkEventMap(e: AttriaxRawDeepLinkEvent): Map<String, Any?> = mapOf(
-    "uri" to e.uri.raw,
-    "receivedAtMs" to e.receivedAtMs,
-    "isInitial" to e.isInitial,
-)
-
-private fun browserActionMap(a: AttriaxBrowserAction): Map<String, Any?> = mapOf(
-    "url" to a.url,
-    "openMode" to a.openMode.wire(),
-)
-
-private fun installReferrerMap(r: AttriaxInstallReferrerDetails): Map<String, Any?> = mapOf(
-    "rawPlatformInstallReferrer" to r.rawPlatformInstallReferrer,
-    "source" to r.source,
-    "medium" to r.medium,
-    "campaign" to r.campaign,
-    "term" to r.term,
-    "content" to r.content,
-    "adNetwork" to r.adNetwork,
-    "adClickId" to r.adClickId,
-    "attributionType" to r.attributionType.wire(),
-    "deepLinkUrl" to r.deepLinkUrl,
-    "deepLinkData" to r.deepLinkData,
-    "registeredAt" to r.registeredAt,
-    "installBeginTimestampSeconds" to r.installBeginTimestampSeconds,
-    "referrerClickTimestampSeconds" to r.referrerClickTimestampSeconds,
-    "googlePlayInstantParam" to r.googlePlayInstantParam,
-    "precision" to r.precision,
-    "utm" to r.utm,
-)
-
-private fun deepLinkReferrerMap(r: AttriaxDeepLinkReferrerDetails): Map<String, Any?> = mapOf(
-    "uri" to r.uri.raw,
-    "receivedAtMs" to r.receivedAtMs,
-    "clickedAtMs" to r.clickedAtMs,
-    "consumedAtMs" to r.consumedAtMs,
-    "trigger" to r.trigger.wire(),
-    "isAttriaxDomain" to r.isAttriaxDomain,
-    "found" to r.found,
-    "data" to r.data,
-    "utm" to r.utm,
-    "browserAction" to r.browserAction?.let { browserActionMap(it) },
-)
-
-private fun skanStateMap(s: AttriaxSkanState): Map<String, Any?> = mapOf(
-    "enabled" to s.enabled,
-    "fineValue" to s.fineValue,
-    "coarseValue" to s.coarseValue?.wireValue,
-    "lockWindow" to s.lockWindow,
-)
-
-private fun skanUpdateResultMap(r: AttriaxSkanUpdateResult): Map<String, Any?> = mapOf(
-    "status" to r.status.wireValue,
-    "message" to r.message,
-    "fineValue" to r.fineValue,
-    "coarseValue" to r.coarseValue?.wireValue,
-    "lockWindow" to r.lockWindow,
-)
-
-private fun receiptValidationMap(r: AttriaxRevenueReceiptValidationResult): Map<String, Any?> = mapOf(
-    "validationId" to r.validationId,
-    "status" to r.status.wire(),
-    "publicReceipt" to r.publicReceipt,
-    "requestVersion" to r.requestVersion,
-    "acceptedAtMs" to r.acceptedAtMs,
-    "provider" to r.provider,
-    "environment" to r.environment,
-    "transactionId" to r.transactionId,
-    "originalTransactionId" to r.originalTransactionId,
-    "productId" to r.productId,
-    "failureReason" to r.failureReason,
-    "expiresAtMs" to r.expiresAtMs,
-    "providerResult" to r.providerResult,
-)
-
-// -------- event stream JSON (for the C callback) --------
+//
+//  The result-shaping maps + enum wire mappings + arg accessors these once sat beside
+//  now live in commonMain (`AttriaxDispatcher.kt`), shared with every binding.
+//  `deepLinkEventMap` and `AttriaxSynchronizationState.wire()` are `internal` there so
+//  the two event-JSON encoders below still reach them.
 
 private fun syncStateEventJson(state: AttriaxSynchronizationState): String =
     Json.encode(mapOf("type" to "synchronizationState", "state" to state.wire()))
@@ -727,53 +338,8 @@ private fun deepLinkEventJson(event: AttriaxDeepLinkEvent): String =
     Json.encode(mapOf("type" to "deepLink", "event" to deepLinkEventMap(event)))
 
 // ---------------------------------------------------------------------------
-//  Enum wire mappings (lowercased enum name unless a dedicated wireValue exists)
-// ---------------------------------------------------------------------------
-
-private fun AttriaxSynchronizationState.wire(): String = name.lowercase()
-private fun AttriaxDeepLinkTrigger.wire(): String = name.lowercase()
-private fun AttriaxDeepLinkResolutionStatus.wire(): String = name.lowercase()
-private fun AttriaxResolvedUrlOpenMode.wire(): String = name.lowercase()
-private fun AttributionType.wire(): String = name.lowercase()
-private fun AttriaxRevenueReceiptValidationStatus.wire(): String = name.lowercase()
-
-private fun parseAttStatus(raw: String?): AttriaxAttStatus? {
-    val v = raw?.trim() ?: return null
-    return AttriaxAttStatus.entries.firstOrNull { it.wireValue == v }
-}
-
-private fun parseCoarseValue(raw: String?): AttriaxSkanCoarseValue? {
-    val v = raw?.trim() ?: return null
-    return AttriaxSkanCoarseValue.entries.firstOrNull { it.wireValue == v }
-}
-
-private fun parseAdEventType(raw: String?): AttriaxAdEventType? {
-    val v = raw?.trim() ?: return null
-    return AttriaxAdEventType.entries.firstOrNull {
-        it.name.equals(v, ignoreCase = true) || it.eventName.equals(v, ignoreCase = true)
-    }
-}
-
-private fun parseNotificationType(raw: String?): AttriaxNotificationEventType? {
-    val v = raw?.trim() ?: return null
-    return AttriaxNotificationEventType.entries.firstOrNull {
-        it.name.equals(v, ignoreCase = true) || it.wireValue.equals(v, ignoreCase = true)
-    }
-}
-
-private fun parseNotificationSource(raw: String?): AttriaxNotificationEventSource? {
-    val v = raw?.trim() ?: return null
-    return AttriaxNotificationEventSource.entries.firstOrNull {
-        it.name.equals(v, ignoreCase = true) || it.wireValue.equals(v, ignoreCase = true)
-    }
-}
-
-// ---------------------------------------------------------------------------
 //  JSON / C-string helpers
 // ---------------------------------------------------------------------------
-
-/** Synthetic error carrier for [route]'s `recordError` (host errors have no Kotlin type). */
-private class AttriaxHostError(message: String) : Throwable(message)
 
 private fun okEnvelope(value: Any?): String = Json.encode(mapOf("ok" to true, "value" to value))
 
@@ -806,31 +372,3 @@ private fun String.toCReturnString(): CPointer<ByteVar> {
     ptr[bytes.size] = 0
     return ptr
 }
-
-// -------- typed arg accessors over the decoded JSON map --------
-
-private fun Map<String, Any?>.string(k: String): String? = this[k] as? String
-private fun Map<String, Any?>.stringOr(k: String, d: String): String = this[k] as? String ?: d
-private fun Map<String, Any?>.boolOr(k: String, d: Boolean): Boolean = this[k] as? Boolean ?: d
-private fun Map<String, Any?>.boolOrNull(k: String): Boolean? = this[k] as? Boolean
-
-private fun Map<String, Any?>.numberOrNull(k: String): Double? = when (val v = this[k]) {
-    is Long -> v.toDouble()
-    is Int -> v.toDouble()
-    is Double -> v
-    is Number -> v.toDouble()
-    else -> null
-}
-
-private fun Map<String, Any?>.longOr(k: String, d: Long): Long = numberOrNull(k)?.toLong() ?: d
-private fun Map<String, Any?>.longOrNull(k: String): Long? = numberOrNull(k)?.toLong()
-private fun Map<String, Any?>.intOr(k: String, d: Int): Int = numberOrNull(k)?.toInt() ?: d
-private fun Map<String, Any?>.intOrNull(k: String): Int? = numberOrNull(k)?.toInt()
-private fun Map<String, Any?>.doubleOr(k: String, d: Double): Double = numberOrNull(k) ?: d
-private fun Map<String, Any?>.doubleOrNull(k: String): Double? = numberOrNull(k)
-
-@Suppress("UNCHECKED_CAST")
-private fun Map<String, Any?>.mapOrNull(k: String): Map<String, Any?>? = this[k] as? Map<String, Any?>
-
-private fun Map<String, Any?>.stringListOrNull(k: String): List<String>? =
-    (this[k] as? List<*>)?.mapNotNull { it as? String }
