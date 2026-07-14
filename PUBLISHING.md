@@ -3,7 +3,29 @@
 The KMP core publishes one artifact per target via the `maven-publish` plugin.
 Coordinates come from `gradle.properties` (`ATTRIAX_GROUP`, `ATTRIAX_VERSION`).
 
-## Published artifacts (group `com.attriax`, version `0.5.0`)
+**Status: LIVE on Maven Central.** `com.attriax:core` (and its per-target
+siblings) is published and resolvable from Maven Central — this is the primary
+path every consumer SDK now uses. `publishToMavenLocal` below is retained only
+for **local development** against an unreleased core.
+
+## Consume from Maven Central (primary path)
+
+Consumers add `mavenCentral()` to their repositories and depend on the
+variant-aware root coordinate — Gradle resolves the right per-target artifact
+automatically:
+
+```kotlin
+repositories { mavenCentral() }
+
+dependencies {
+    implementation("com.attriax:core:0.6.0") // or `api(...)` to re-expose the surface
+}
+```
+
+Registry: <https://central.sonatype.com/artifact/com.attriax/core> (per-target
+artifacts at `/core-jvm`, `/core-android`, `/core-mingwx64`, `/core-linuxx64`).
+
+## Published artifacts (group `com.attriax`, version `0.6.0`)
 
 | Coordinate | Kind | Consumed by |
 | --- | --- | --- |
@@ -20,7 +42,11 @@ XCFramework) are produced **at the Mac** once the Apple targets are added.
 > `attriax-sdk` before a real publish is a one-line module rename — deliberately
 > deferred so it doesn't churn the verified local-publish setup.
 
-## Publish locally (no credentials, no signing)
+## Publish locally for development (no credentials, no signing)
+
+For iterating on the core against a consumer before a Central release, publish to
+the local Maven cache (`mavenLocal()`); consumers that add `mavenLocal()` ahead of
+`mavenCentral()` will pick it up:
 
 ```bash
 ./gradlew :core:publishToMavenLocal
@@ -29,6 +55,7 @@ XCFramework) are produced **at the Mac** once the Apple targets are added.
 
 This produces `.aar` / `.jar` / `.klib` + `-sources.jar` + `.module` + `.pom` for
 every target. Verified green on this host (android + jvm + mingwX64 + linuxX64).
+For released consumption, use Maven Central (above) instead.
 
 ## Publish to a remote repository (manual)
 
