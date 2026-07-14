@@ -1,11 +1,13 @@
+import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
     id("com.android.library")
-    `maven-publish`
-    signing
+    // Applies maven-publish + signing, generates sources/javadoc jars, signs with the
+    // in-memory GPG key, and uploads to the Sonatype Central Portal.
+    id("com.vanniktech.maven.publish") version "0.30.0"
 }
 
 // Manual/local publish coordinates (no CI). `publishToMavenLocal` needs no
@@ -199,55 +201,38 @@ android {
     }
 }
 
-// KMP publishing (manual/local, no CI). The Kotlin Multiplatform + maven-publish
-// plugins auto-create one publication per target (kotlinMultiplatform metadata +
-// android AAR + jvm jar + mingwX64/linuxX64 klibs); we only stamp the shared POM
-// and wire an OPTIONAL remote repo + OPTIONAL signing. `publishToMavenLocal`
-// works with no credentials and no signing.
-publishing {
-    publications.withType<MavenPublication>().configureEach {
-        pom {
-            name.set("Attriax KMP SDK")
-            description.set(
-                "Attriax mobile measurement & attribution SDK — one Kotlin Multiplatform " +
-                    "core for Android, JVM, and native desktop (Windows/Linux/macOS).",
-            )
-            url.set("https://attriax.com")
-            licenses {
-                license { name.set("Proprietary") }
-            }
-            developers {
-                developer {
-                    id.set("attriax")
-                    name.set("Attriax")
-                }
-            }
-            scm {
-                url.set("https://github.com/attriax/sdk-kmp")
+// KMP publishing to Maven Central via the Sonatype Central Portal (manual/local,
+// no CI). vanniktech auto-creates one publication per target (kotlinMultiplatform
+// metadata + android AAR + jvm jar + native klibs), attaches sources + javadoc jars,
+// signs every publication with the in-memory GPG key (signingInMemoryKey* props),
+// and uploads to the Central Portal. `publishToMavenLocal` still needs no credentials
+// or signing. Auth: mavenCentralUsername/mavenCentralPassword (the Central user token).
+// automaticRelease = false → the deployment lands "Validated" on the portal for you to
+// review + click Publish (set true to auto-release once you trust it).
+mavenPublishing {
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = false)
+    signAllPublications()
+    coordinates(project.group.toString(), "core", project.version.toString())
+    pom {
+        name.set("Attriax KMP SDK")
+        description.set(
+            "Attriax mobile measurement & attribution SDK — one Kotlin Multiplatform " +
+                "core for Android, JVM, and native desktop (Windows/Linux/macOS).",
+        )
+        url.set("https://attriax.com")
+        licenses {
+            license { name.set("Proprietary") }
+        }
+        developers {
+            developer {
+                id.set("attriax")
+                name.set("Attriax")
             }
         }
-    }
-
-    // Remote target is DORMANT unless ATTRIAX_PUBLISH_URL is supplied (via
-    // ~/.gradle/gradle.properties or -P). publishToMavenLocal never needs it.
-    repositories {
-        val publishUrl = providers.gradleProperty("ATTRIAX_PUBLISH_URL").orNull
-        if (publishUrl != null) {
-            maven {
-                name = "attriax"
-                url = uri(publishUrl)
-                credentials {
-                    username = providers.gradleProperty("ATTRIAX_PUBLISH_USER").orNull
-                    password = providers.gradleProperty("ATTRIAX_PUBLISH_PASSWORD").orNull
-                }
-            }
+        scm {
+            url.set("https://github.com/attriax/sdk-kmp")
+            connection.set("scm:git:https://github.com/attriax/sdk-kmp.git")
+            developerConnection.set("scm:git:ssh://git@github.com/attriax/sdk-kmp.git")
         }
     }
-}
-
-// Signing is required ONLY when a signing key is supplied, so local dev builds +
-// publishToMavenLocal never trip over it.
-signing {
-    setRequired({ project.hasProperty("signing.keyId") })
-    sign(publishing.publications)
 }
