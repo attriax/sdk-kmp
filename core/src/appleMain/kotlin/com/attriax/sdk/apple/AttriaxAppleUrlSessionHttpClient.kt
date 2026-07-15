@@ -29,10 +29,12 @@ import platform.Foundation.dataTaskWithRequest
 import platform.Foundation.setHTTPBody
 import platform.Foundation.setHTTPMethod
 import platform.Foundation.setValue
-import platform.darwin.DISPATCH_TIME_FOREVER
+import platform.darwin.DISPATCH_TIME_NOW
 import platform.darwin.dispatch_semaphore_create
 import platform.darwin.dispatch_semaphore_signal
 import platform.darwin.dispatch_semaphore_wait
+import platform.darwin.dispatch_time
+import platform.darwin.dispatch_time_t
 
 /**
  * The single long-lived `NSURLSession`-backed Apple transport.
@@ -63,6 +65,14 @@ class AttriaxAppleUrlSessionHttpClient(
     private val userAgent: String,
     requestTimeoutMs: Long,
 ) : HttpClient {
+
+    /**
+     * Upper bound for the blocking semaphore wait: the configured request timeout plus a
+     * margin, so NSURLSession's own timeouts win in the normal case and this only trips
+     * as the backstop if a completion handler never arrives at all.
+     */
+    private val waitTimeoutMs: Long =
+        if (requestTimeoutMs > 0L) requestTimeoutMs + WAIT_TIMEOUT_MARGIN_MS else DEFAULT_WAIT_TIMEOUT_MS
 
     private val session: NSURLSession = run {
         val configuration = NSURLSessionConfiguration.ephemeralSessionConfiguration
@@ -105,7 +115,19 @@ class AttriaxAppleUrlSessionHttpClient(
             dispatch_semaphore_signal(semaphore)
         }
         task.resume()
-        dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER)
+        // Bounded wait. NSURLSession's own request/resource timeouts are the primary
+        // guard, but they are the ONLY guard: an unbounded DISPATCH_TIME_FOREVER means a
+        // completion handler that never arrives wedges the dispatcher's flush thread
+        // permanently — the synchronization state never leaves SYNCHRONIZING and no later
+        // flush can recover, since the queue's single flush thread is parked forever.
+        // Time it out, cancel, and surface a retryable timeout instead (the same bounded
+        // -wait discipline AttriaxAppleUserAgent already uses for its WKWebView probe).
+        if (dispatch_semaphore_wait(semaphore, deadlineFromNow(waitTimeoutMs)) != 0L) {
+            task.cancel()
+            throw AttriaxTimeoutException(
+                message = "Apple transport wait exceeded ${waitTimeoutMs}ms for $method $path",
+            )
+        }
 
         resultError?.let { error ->
             if (error.domain == NSURLErrorDomain && error.code == NSURLErrorTimedOut) {
@@ -179,4 +201,23 @@ class AttriaxAppleUrlSessionHttpClient(
 
     private fun NSData.toUtf8String(): String? =
         NSString.create(this, NSUTF8StringEncoding) as String?
+
+    /** A `dispatch_time` deadline [ms] milliseconds from now. */
+    private fun deadlineFromNow(ms: Long): dispatch_time_t =
+        dispatch_time(DISPATCH_TIME_NOW, ms * NSEC_PER_MSEC)
+
+    private companion object {
+        /** Nanoseconds per millisecond, for `dispatch_time` deadlines. */
+        const val NSEC_PER_MSEC: Long = 1_000_000L
+
+        /**
+         * Margin added to the configured request timeout before the backstop wait fires,
+         * so NSURLSession's own timeout normally wins and this only trips when a
+         * completion handler never arrives at all.
+         */
+        const val WAIT_TIMEOUT_MARGIN_MS: Long = 5_000L
+
+        /** Backstop when no request timeout is configured (`requestTimeoutMs <= 0`). */
+        const val DEFAULT_WAIT_TIMEOUT_MS: Long = 60_000L
+    }
 }
