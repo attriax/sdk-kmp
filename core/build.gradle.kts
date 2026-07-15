@@ -1,4 +1,5 @@
 import com.vanniktech.maven.publish.SonatypeHost
+import org.gradle.api.attributes.java.TargetJvmVersion
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
@@ -15,6 +16,17 @@ plugins {
 group = providers.gradleProperty("ATTRIAX_GROUP").getOrElse("com.attriax")
 version = providers.gradleProperty("ATTRIAX_VERSION").getOrElse("0.6.0")
 
+// SINGLE SOURCE OF TRUTH for the JVM-family bytecode level. Feeds, in lockstep:
+//   1. androidTarget's Kotlin jvmTarget,
+//   2. jvm()'s Kotlin jvmTarget          <- was UNSET before 0.6.1 (the defect),
+//   3. android.compileOptions source/targetCompatibility,
+//   4. the `org.gradle.jvm.version` attribute published in core-<v>.module.
+// 17 (not 21) because it matches the repo's documented JDK 17-21 support range and the
+// Android target; the JVM sources use nothing newer (pure HttpURLConnection transport).
+// If this is ever raised, (4) keeps the published metadata honest automatically.
+val attriaxJvmTarget = 17
+val attriaxKotlinJvmTarget = JvmTarget.fromTarget(attriaxJvmTarget.toString())
+
 kotlin {
     // Auto-creates the intermediate source sets (nativeMain shared by mingwX64 +
     // linuxX64, appleMain later for iOS/macOS, etc.).
@@ -23,11 +35,21 @@ kotlin {
     // JVM-family targets: Android (AAR) + a plain JVM (desktop hosts that embed a
     // JVM, and the fast commonTest runner).
     androidTarget {
-        compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
+        compilerOptions { jvmTarget.set(attriaxKotlinJvmTarget) }
         // Publish the release AAR variant (KMP wires the Android publication).
         publishLibraryVariants("release")
     }
-    jvm()
+    jvm {
+        // MUST be set explicitly and MUST match androidTarget above. Without this the
+        // jvm target silently inherits the bytecode level of whatever JDK happens to
+        // run Gradle (JDK 21 on this host → class file 65.0), and — because the
+        // `org.gradle.jvm.version` attribute on jvmApiElements/jvmRuntimeElements is
+        // derived from it — the published `.module` then carries NO jvm.version at
+        // all. A JDK-17 consumer of `com.attriax:core-jvm` resolves + compiles green
+        // and only blows up at RUNTIME with UnsupportedClassVersionError. Android is
+        // insulated (D8 desugars), but `AttriaxDesktop` (JVM) is an advertised path.
+        compilerOptions { jvmTarget.set(attriaxKotlinJvmTarget) }
+    }
 
     // Native desktop targets buildable on this Windows host. macOS + iOS targets
     // are added at the Mac (they require Xcode); ignoreDisabledTargets keeps the
@@ -189,6 +211,26 @@ kotlin {
     }
 }
 
+// The Kotlin `jvmTarget` above fixes the emitted BYTECODE (class file 61.0), but on its
+// own it does NOT reach the published Gradle metadata: KGP only derives
+// `org.gradle.jvm.version` from a configured Java TOOLCHAIN, and this build deliberately
+// has none (it compiles on whatever JDK 17-21 the host provides — see gradle.properties;
+// there is no foojay resolver, so `jvmToolchain(17)` would not resolve here). Result
+// without this block: `jvmApiElements-published`/`jvmRuntimeElements-published` carry NO
+// jvm.version, so Gradle CANNOT reject an under-versioned consumer at resolution time —
+// a JDK-17 consumer resolves + compiles green and dies at runtime with
+// UnsupportedClassVersionError (the 0.6.0 defect).
+//
+// So declare the attribute explicitly, pinned to the same `attriaxJvmTarget` constant
+// that drives the compiler target — the two cannot drift apart.
+listOf("jvmApiElements", "jvmRuntimeElements").forEach { configurationName ->
+    configurations.named(configurationName).configure {
+        attributes {
+            attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, attriaxJvmTarget)
+        }
+    }
+}
+
 android {
     namespace = "com.attriax.sdk.core"
     compileSdk = 35
@@ -196,8 +238,8 @@ android {
         minSdk = 21
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.toVersion(attriaxJvmTarget)
+        targetCompatibility = JavaVersion.toVersion(attriaxJvmTarget)
     }
 }
 
