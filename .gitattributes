@@ -1,0 +1,26 @@
+# Line-ending policy for sdk-kmp.
+#
+# NOTE: .gitattributes do not cross repository boundaries, so this submodule does
+# not inherit the workspace-root .gitattributes. It needs its own.
+#
+# Git for Windows ships core.autocrlf=true as a SYSTEM default
+# (C:/Program Files/Git/etc/gitconfig), which checks text files out as CRLF on a
+# fresh Windows clone.
+#
+# `gradlew` is a POSIX shell script executed on Linux and macOS — this repo is built
+# on the Linux VM (linuxX64), on a Mac (the XCFramework for sdk-ios), and on Windows.
+# A CRLF checkout gives it a `#!/bin/sh\r` shebang, which fails with an obscure
+# "no such file or directory". `gradlew.bat` is the opposite: a Windows batch file,
+# conventionally CRLF and safest pinned that way. `gradle-wrapper.jar` must never be
+# touched by any text filter.
+#
+# Local `core.autocrlf` config is machine-local and never travels with the repo — a
+# fresh clone elsewhere gets the system default. This attribute travels; the local
+# override does not.
+#
+# Deliberately targeted rather than a blanket `* text=auto eol=lf`, which would
+# rewrite the whole working tree on next checkout for no benefit.
+gradlew                text eol=lf
+gradlew.bat            text eol=crlf
+gradle-wrapper.jar     binary
+*.sh                   text eol=lf
