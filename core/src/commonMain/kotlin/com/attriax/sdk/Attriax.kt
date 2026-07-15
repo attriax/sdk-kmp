@@ -6,6 +6,7 @@ import com.attriax.sdk.internal.AttriaxCrashReportingManager
 import com.attriax.sdk.internal.AttriaxUncaughtHandlerRegistration
 import com.attriax.sdk.internal.attriaxExceptionName
 import com.attriax.sdk.internal.attriaxInstallUncaughtExceptionHandler
+import com.attriax.sdk.internal.attriaxRedactUrl
 import com.attriax.sdk.internal.AttriaxContextSnapshot
 import com.attriax.sdk.internal.AttriaxDeviceIdentityStore
 import com.attriax.sdk.internal.AttriaxIso8601
@@ -210,6 +211,7 @@ class Attriax internal constructor(
         queue = queue,
         transport = transport,
         clock = clock,
+        logger = logger,
         onDelivered = { queued, response -> onRequestDelivered(queued, response) },
         buildSessionKeepAliveBatch = { group -> buildSessionKeepAliveBatch(group) },
         onSessionKeepAliveDelivered = { sessionId, occurredAtMs ->
@@ -429,12 +431,26 @@ class Attriax internal constructor(
      */
     private fun maybeOpenBrowser(action: AttriaxBrowserAction?): Boolean {
         if (action == null || !config.automaticBrowserHandling) return false
+        // Only the REDACTED url reaches the log: warn is ungated, so these lines land in
+        // logcat / the Apple unified log on RELEASE builds, and a resolved deep link can
+        // carry campaign params, user ids, or one-time tokens. The exception MESSAGE is
+        // dropped for the same reason — browser openers habitually embed the offending
+        // URL in it (e.g. `IOException: Cannot run program ... https://...?token=...`),
+        // which would smuggle the full link back into the log we just redacted.
         return try {
             browserOpener.open(action.url).also { opened ->
-                if (!opened) logger.warn("Attriax could not open resolved browser URL ${action.url}.")
+                if (!opened) {
+                    logger.warn(
+                        "Attriax could not open the resolved browser URL " +
+                            "${attriaxRedactUrl(action.url)}.",
+                    )
+                }
             }
         } catch (e: Exception) {
-            logger.warn("Attriax browser-open seam threw for ${action.url}: ${e.message}")
+            logger.warn(
+                "Attriax browser-open seam threw ${attriaxExceptionName(e)} for " +
+                    "${attriaxRedactUrl(action.url)}.",
+            )
             false
         }
     }
@@ -538,7 +554,21 @@ class Attriax internal constructor(
      * Any future addition here must preserve this: if it can block, schedule it.
      */
     fun init() {
-        if (!initialized.compareAndSet(false, true)) return
+        if (!initialized.compareAndSet(false, true)) {
+            logger.warn("init() called more than once; ignoring the repeat call.")
+            return
+        }
+
+        // An empty/blank project token silently makes the whole SDK inert (isEnabled()
+        // is false, so every flush short-circuits). Say so ONCE at warn, unconditionally
+        // — this is the single most common integration mistake and it used to present
+        // as "the SDK does nothing and never explains why".
+        if (config.normalizedProjectToken.isEmpty()) {
+            logger.warn(
+                "No project token configured: tracking is INERT and nothing will be sent " +
+                    "to Attriax. Set AttriaxConfig.projectToken to your project's token.",
+            )
+        }
 
         firstLaunch = store.getString(KEY_FIRST_LAUNCH) == null
         deviceIdentity = deviceIdentityStore.loadOrCreate()
@@ -585,6 +615,15 @@ class Attriax internal constructor(
         if (firstLaunch) {
             store.putString(KEY_FIRST_LAUNCH, "false")
         }
+
+        // Deliberately NOT logged: the project token and the resolved device id. The
+        // id's SOURCE is safe and is the useful diagnostic (it explains identity
+        // fragmentation without printing the identifier itself).
+        logger.info(
+            "Initialized. appVersion=${config.appVersion} api=${config.apiBaseUrl} " +
+                "firstLaunch=$firstLaunch deviceIdSource=${deviceIdentity?.source} " +
+                "gdpr=${config.gdprEnabled} sessionTracking=${config.sessionTrackingEnabled}",
+        )
     }
 
     /**
@@ -748,7 +787,13 @@ class Attriax internal constructor(
     ): Boolean {
         val decision = consentQueuePolicy.trackingDecisionForQueuedRequest(request)
         if (decision != null) {
-            if (!decision.capture) return false
+            if (!decision.capture) {
+                logger.debug(
+                    "Withholding ${request.kind}: the current consent decision does not " +
+                        "allow capturing it.",
+                )
+                return false
+            }
             val toEnqueue = if (decision.attachDeviceIdentity) {
                 request
             } else {
@@ -762,6 +807,10 @@ class Attriax internal constructor(
                 scheduleFlushOrDefer(flushImmediately)
             } else {
                 // Consent defers network dispatch (deferred synchronization).
+                logger.debug(
+                    "Queued ${request.kind} locally: consent defers network dispatch until " +
+                        "a decision is made.",
+                )
                 syncState.set(AttriaxSynchronizationState.DEFERRED)
             }
             return true
@@ -775,7 +824,10 @@ class Attriax internal constructor(
                 consentManager.allowsAttributionTracking()
             else -> true
         }
-        if (!allowed) return false
+        if (!allowed) {
+            logger.debug("Withholding ${request.kind}: attribution consent has not been granted.")
+            return false
+        }
         enqueue(request)
         scheduleFlushOrDefer(flushImmediately)
         return true
@@ -1543,9 +1595,16 @@ class Attriax internal constructor(
         if (!isEnabled()) {
             // Tracking disabled / project token empty (disabled synchronization).
             syncState.set(AttriaxSynchronizationState.DISABLED)
+            logger.debug(
+                "Flush skipped: tracking is disabled or no project token is set " +
+                    "(queued requests stay on disk).",
+            )
             return
         }
-        if (flushExecutor.isShutdown) return
+        if (flushExecutor.isShutdown) {
+            logger.debug("Flush skipped: the SDK has been disposed.")
+            return
+        }
         flushExecutor.execute {
             // A flush has begun (Flutter synchronizer sets `synchronizing`
             // on enqueue / connectivity restore before draining the queue).
@@ -1554,7 +1613,10 @@ class Attriax internal constructor(
             try {
                 dispatcher.flush()
             } catch (e: Exception) {
-                // Best-effort; a flush failure must never crash the host app.
+                // Best-effort; a flush failure must never crash the host app. It must
+                // not be INVISIBLE either — this catch swallowed every unexpected
+                // engine fault without a trace.
+                logger.error("Flush aborted by an unexpected ${attriaxExceptionName(e)}: ${e.message}")
             }
             resolveSynchronizationStateAfterFlush()
         }
@@ -1588,6 +1650,17 @@ class Attriax internal constructor(
             pending.isEmpty() -> AttriaxSynchronizationState.SYNCHRONIZED
             pending.any { it.lastErrorClass != null } -> AttriaxSynchronizationState.OFFLINE
             else -> AttriaxSynchronizationState.DEFERRED
+        }
+        // OFFLINE means real requests are stuck on disk — surface it at warn so it is
+        // visible WITHOUT debug logs, since it is the state a customer needs to see.
+        if (next == AttriaxSynchronizationState.OFFLINE) {
+            logger.warn(
+                "Cannot reach the Attriax API at ${config.apiBaseUrl}: ${pending.size} " +
+                    "request(s) remain queued and will retry. Last error: " +
+                    "${pending.firstOrNull { it.lastErrorClass != null }?.lastErrorClass}.",
+            )
+        } else {
+            logger.debug("Synchronization state after flush: $next (${pending.size} queued).")
         }
         syncState.set(next)
     }

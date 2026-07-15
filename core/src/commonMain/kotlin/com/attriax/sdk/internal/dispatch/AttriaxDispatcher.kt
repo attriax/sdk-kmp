@@ -2,7 +2,9 @@ package com.attriax.sdk.internal.dispatch
 
 import com.attriax.sdk.internal.AttriaxClock
 import com.attriax.sdk.internal.AttriaxHttpException
+import com.attriax.sdk.internal.AttriaxLogger
 import com.attriax.sdk.internal.AttriaxTimeoutException
+import com.attriax.sdk.internal.attriaxExceptionName
 import com.attriax.sdk.internal.AttriaxTransportException
 import com.attriax.sdk.internal.HttpClient
 import com.attriax.sdk.internal.json.Json
@@ -35,6 +37,15 @@ internal class AttriaxDispatcher(
     private val queue: AttriaxQueueManager,
     private val transport: HttpClient,
     private val clock: AttriaxClock,
+    /**
+     * Diagnostics. The engine injects its real logger; the [AttriaxLogger.SILENT]
+     * default keeps the pure dispatcher tests off the platform log stream. Delivery
+     * outcomes log at debug (gated by `enableDebugLogs`) while every failure, retry and
+     * drop logs at warn/error, so a customer sees WHY nothing arrives even with debug
+     * logging off. Only the request `kind`, endpoint path, error class and HTTP status
+     * are logged — never the payload body, project token, or device id.
+     */
+    private val logger: AttriaxLogger = AttriaxLogger.SILENT,
     /**
      * Notified with the (envelope-unwrapped) response when a SINGLE-SEND request is
      * delivered (2xx). Used by the app-open handler to recover the deferred deep
@@ -71,7 +82,11 @@ internal class AttriaxDispatcher(
     fun flush(): Int {
         synchronized(flushLock) {
             val ordered = AttriaxAppOpenHoist.prioritize(queue.readAll())
-            if (ordered.isEmpty()) return 0
+            if (ordered.isEmpty()) {
+                logger.debug("Flush skipped: the request queue is empty.")
+                return 0
+            }
+            logger.debug("Flush starting: ${ordered.size} request(s) queued.")
 
             // Ids present at flush start; anything enqueued DURING the flush must be
             // preserved on write-back so a concurrent enqueue is not clobbered.
@@ -113,6 +128,7 @@ internal class AttriaxDispatcher(
             }
 
             queue.writeAllPreservingNew(remaining, snapshotIds)
+            logger.debug("Flush finished: $delivered delivered, ${remaining.size} still queued.")
             return delivered
         }
     }
@@ -127,10 +143,15 @@ internal class AttriaxDispatcher(
         return try {
             val response = transport.post(queued.request.path, Json.encode(queued.request.body))
             onDelivered?.invoke(queued, response)
+            logger.debug("Delivered ${queued.request.kind} to ${queued.request.path}.")
             Outcome(emptyList(), 1, stop = false)
         } catch (e: Exception) {
             val failure = classify(e) ?: run {
                 // Non-transport exception — treat as a hard drop to avoid a poison loop.
+                logger.error(
+                    "Dropping ${queued.request.kind}: unexpected ${attriaxExceptionName(e)} " +
+                        "while sending to ${queued.request.path}. ${e.message}",
+                )
                 onDropped?.invoke(queued, "unexpected_error")
                 return Outcome(emptyList(), 0, stop = false)
             }
@@ -146,10 +167,20 @@ internal class AttriaxDispatcher(
                 return Outcome(emptyList(), 0, stop = false)
             }
             // Retryable failure halts the flush (server likely unhealthy).
+            logger.warn(
+                "${queued.request.kind} to ${queued.request.path} failed " +
+                    "(${describe(failure)}); it stays queued for retry " +
+                    "(attempt ${marked.attemptCount}). Halting this flush pass.",
+            )
             return Outcome(listOf(marked), 0, stop = true)
         }
 
         // Non-retryable (other 4xx) → drop.
+        logger.error(
+            "Dropping ${queued.request.kind} to ${queued.request.path}: " +
+                "non-retryable ${describe(failure)}. Check that the project token is valid " +
+                "and that the payload is well-formed — this request will NOT be retried.",
+        )
         onDropped?.invoke(queued, "non_retryable_${AttriaxRetryPolicy.errorClass(failure)}")
         return Outcome(emptyList(), 0, stop = false)
     }
@@ -168,11 +199,16 @@ internal class AttriaxDispatcher(
         return try {
             transport.post(AttriaxEndpoints.BATCH, Json.encode(batchBody))
             keepAlive?.let { onSessionKeepAliveDelivered?.invoke(it.sessionId, it.occurredAtMs) }
+            logger.debug("Delivered a batch of ${group.size} request(s).")
             Outcome(emptyList(), group.size, stop = false)
         } catch (e: Exception) {
             val failure = classify(e)
             if (failure != null && AttriaxRetryPolicy.isRetryable(failure)) {
                 val attemptedAt = clock.nowMs()
+                logger.warn(
+                    "Batch of ${group.size} request(s) failed (${describe(failure)}); " +
+                        "the items stay queued for retry. Halting this flush pass.",
+                )
                 // Mark each item for retry, but terminal-drop any that now exceed
                 // the attempt/age thresholds (mirrors the single-send path).
                 val survivors = group
@@ -183,6 +219,11 @@ internal class AttriaxDispatcher(
 
             // Non-retryable batch failure → binary split retry.
             if (group.size > 1) {
+                logger.warn(
+                    "Batch of ${group.size} request(s) failed with a non-retryable " +
+                        "${failure?.let { describe(it) } ?: attriaxExceptionName(e)}; " +
+                        "splitting it to isolate the offending request(s).",
+                )
                 val splitIndex = group.size / 2
                 val firstHalf = sendBatch(group.subList(0, splitIndex))
                 if (firstHalf.stop) {
@@ -203,6 +244,10 @@ internal class AttriaxDispatcher(
             // A single failing item falls back to per-request handling.
             val single = group.first()
             if (failure == null) {
+                logger.error(
+                    "Dropping ${single.request.kind}: unexpected ${attriaxExceptionName(e)} " +
+                        "while sending a single-item batch. ${e.message}",
+                )
                 onDropped?.invoke(single, "unexpected_error")
                 Outcome(emptyList(), 0, stop = false)
             } else {
@@ -216,8 +261,23 @@ internal class AttriaxDispatcher(
         val terminal = AttriaxRetryPolicy.terminalDropReason(
             marked.request, marked.attemptCount, marked.createdAtMs, nowMs,
         ) ?: return false
+        logger.error(
+            "Dropping ${marked.request.kind} to ${marked.request.path} PERMANENTLY after " +
+                "${marked.attemptCount} attempt(s): $terminal. The data in this request is lost.",
+        )
         onDropped?.invoke(marked, terminal)
         return true
+    }
+
+    /**
+     * A privacy-safe, human-readable rendering of a failure for a log line: the error
+     * class plus the HTTP status when there is one. Never includes a response body —
+     * it can echo the submitted payload back.
+     */
+    private fun describe(failure: AttriaxFailure): String {
+        val errorClass = AttriaxRetryPolicy.errorClass(failure)
+        val status = AttriaxRetryPolicy.httpStatusCode(failure)
+        return if (status != null) "$errorClass, HTTP $status" else errorClass
     }
 
     private fun markForRetry(

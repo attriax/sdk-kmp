@@ -36,8 +36,22 @@ internal expect fun attriaxBackgroundExecutor(name: String): AttriaxBackgroundEx
  */
 internal expect fun attriaxExceptionName(e: Throwable): String
 
-/** Emit a diagnostic error line (replaces `System.err.println`). */
-internal expect fun attriaxLogError(message: String)
+/**
+ * Emit one already-formatted, already-gated diagnostic line to the host platform's
+ * NATIVE log stream. This is the single output seam behind [AttriaxLogger] — severity
+ * is passed through so each platform can map it to its own priority rather than the
+ * former stdout/stderr-only split (which was invisible on Android logcat and the Apple
+ * unified log):
+ *
+ *  - androidMain: `android.util.Log` under the `Attriax` tag (d/i/w/e by level),
+ *  - appleMain: `NSLog` (reaches Console.app / the device log; Kotlin/Native `println`
+ *    does NOT),
+ *  - jvmMain / desktopNativeMain: stdout for DEBUG/INFO, stderr for WARNING/ERROR.
+ *
+ * Callers must not gate on [AttriaxConfig.enableDebugLogs] here — [AttriaxLogger] owns
+ * gating, and WARNING/ERROR reach this seam unconditionally by design.
+ */
+internal expect fun attriaxLogEmit(level: AttriaxLogLevel, line: String)
 
 /**
  * A handle to an installed process-wide uncaught-exception handler (
@@ -75,9 +89,3 @@ internal interface AttriaxUncaughtHandlerRegistration {
 internal expect fun attriaxInstallUncaughtExceptionHandler(
     onFatalCrash: (Throwable) -> Unit,
 ): AttriaxUncaughtHandlerRegistration
-
-/**
- * Emit a non-error diagnostic line (debug/info levels). Routed to stdout so it is
- * distinct from the [attriaxLogError] stderr channel and stays dependency-free.
- */
-internal expect fun attriaxLogInfo(message: String)

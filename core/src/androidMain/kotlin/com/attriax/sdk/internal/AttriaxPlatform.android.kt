@@ -1,5 +1,6 @@
 package com.attriax.sdk.internal
 
+import android.util.Log
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -29,12 +30,26 @@ private class AttriaxExecutorServiceBackgroundExecutor(name: String) : AttriaxBa
 
 internal actual fun attriaxExceptionName(e: Throwable): String = e.javaClass.name
 
-internal actual fun attriaxLogError(message: String) {
-    System.err.println(message)
-}
+/**
+ * Logcat tag for every SDK line. Kept <= 23 chars (the historical `Log.isLoggable`
+ * limit) so `adb logcat -s Attriax` and `Log.isLoggable` both work.
+ */
+private const val ATTRIAX_LOG_TAG = "Attriax"
 
-internal actual fun attriaxLogInfo(message: String) {
-    println(message)
+/**
+ * Android sink: real `android.util.Log` at the matching priority. The previous
+ * `println`/`System.err.println` actuals were the reason `adb logcat` showed nothing
+ * useful — ART routes them to the `System.out`/`System.err` tags, so they were
+ * untaggable, unfilterable, and dropped entirely by some hosts that reassign the
+ * standard streams.
+ */
+internal actual fun attriaxLogEmit(level: AttriaxLogLevel, line: String) {
+    when (level) {
+        AttriaxLogLevel.DEBUG -> Log.d(ATTRIAX_LOG_TAG, line)
+        AttriaxLogLevel.INFO -> Log.i(ATTRIAX_LOG_TAG, line)
+        AttriaxLogLevel.WARNING -> Log.w(ATTRIAX_LOG_TAG, line)
+        AttriaxLogLevel.ERROR -> Log.e(ATTRIAX_LOG_TAG, line)
+    }
 }
 
 internal actual fun attriaxInstallUncaughtExceptionHandler(

@@ -75,13 +75,12 @@ private class AttriaxCoroutineBackgroundExecutor(name: String) : AttriaxBackgrou
 internal actual fun attriaxExceptionName(e: Throwable): String =
     e::class.qualifiedName ?: e::class.simpleName ?: "kotlin.Throwable"
 
-internal actual fun attriaxLogError(message: String) {
-    println(message)
-}
-
-internal actual fun attriaxLogInfo(message: String) {
-    println(message)
-}
+// NB: `attriaxLogEmit` is likewise NOT provided here. A shared `println` actual was the
+// reason Apple hosts saw NOTHING: Kotlin/Native `println` writes to stdout, which the
+// Apple unified log (Console.app / `log stream`, and Xcode's console for a device
+// build) does not capture. It is now specialized per native family:
+//  - appleMain: `NSLog` (AttriaxPlatformLog.apple.kt),
+//  - desktopNativeMain: stdout/stderr by severity (AttriaxPlatformLog.desktop.kt).
 
 // NB: `attriaxInstallUncaughtExceptionHandler` is intentionally NOT provided in this
 // shared native set. It is specialized per native family so Apple gets a real

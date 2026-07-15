@@ -26,6 +26,9 @@ import com.attriax.sdk.jvm.AttriaxJvmBrowserOpener
  *    real Attriax API instance to see live requests succeed.
  *  - `ATTRIAX_PROJECT_TOKEN` — defaults to a placeholder; requests will be
  *    rejected/queued until you supply a real project token.
+ *  - `ATTRIAX_DEBUG_LOGS` — `0` turns `enableDebugLogs` off. SDK diagnostics print as
+ *    `[Attriax][LEVEL] ...`; with debug off only `WARNING`/`ERROR` survive, which is
+ *    the severity contract every platform sink honors.
  *
  * Without a reachable API this example still runs to completion: the SDK
  * queues every request locally and the synchronization listener below reports
@@ -35,6 +38,9 @@ import com.attriax.sdk.jvm.AttriaxJvmBrowserOpener
 fun main() {
     val apiBaseUrl = System.getenv("ATTRIAX_API_BASE_URL") ?: "http://localhost:3000"
     val projectToken = System.getenv("ATTRIAX_PROJECT_TOKEN") ?: "REPLACE_WITH_YOUR_PROJECT_TOKEN"
+    // Set ATTRIAX_DEBUG_LOGS=0 to see the severity contract: debug/info go quiet while
+    // warnings/errors (e.g. an unreachable API) still surface.
+    val enableDebugLogs = System.getenv("ATTRIAX_DEBUG_LOGS") != "0"
 
     // 1. Configure the SDK. `gdprEnabled = true` so the GDPR consent call below
     //    actually gates tracking (it is a no-op decision when GDPR is off).
@@ -43,7 +49,7 @@ fun main() {
         apiBaseUrl = apiBaseUrl,
         appVersion = "1.0.0",
         appPackageName = "com.attriax.example.desktop",
-        enableDebugLogs = true,
+        enableDebugLogs = enableDebugLogs,
         gdprEnabled = true,
     )
 

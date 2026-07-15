@@ -28,12 +28,12 @@ private class AttriaxExecutorServiceBackgroundExecutor(name: String) : AttriaxBa
 
 internal actual fun attriaxExceptionName(e: Throwable): String = e.javaClass.name
 
-internal actual fun attriaxLogError(message: String) {
-    System.err.println(message)
-}
-
-internal actual fun attriaxLogInfo(message: String) {
-    println(message)
+/** JVM sink: DEBUG/INFO → stdout, WARNING/ERROR → stderr. Dependency-free. */
+internal actual fun attriaxLogEmit(level: AttriaxLogLevel, line: String) {
+    when (level) {
+        AttriaxLogLevel.DEBUG, AttriaxLogLevel.INFO -> println(line)
+        AttriaxLogLevel.WARNING, AttriaxLogLevel.ERROR -> System.err.println(line)
+    }
 }
 
 internal actual fun attriaxInstallUncaughtExceptionHandler(

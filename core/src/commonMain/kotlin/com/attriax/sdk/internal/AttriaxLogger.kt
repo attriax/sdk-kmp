@@ -4,21 +4,17 @@ package com.attriax.sdk.internal
 internal enum class AttriaxLogLevel { DEBUG, INFO, WARNING, ERROR }
 
 /**
- * Output boundary for [AttriaxLogger]. The default routes to the platform seams
- * ([attriaxLogInfo] for non-error levels, [attriaxLogError] for warnings/errors);
- * tests inject a capturing sink so gating can be asserted without touching stdout.
+ * Output boundary for [AttriaxLogger]. The default forwards the line AND its severity
+ * to the [attriaxLogEmit] platform seam, which maps it onto the host's native log
+ * stream (logcat / NSLog / stdout+stderr); tests inject a capturing sink so gating can
+ * be asserted without touching the real seam.
  */
 internal fun interface AttriaxLogSink {
     fun emit(level: AttriaxLogLevel, line: String)
 
     companion object {
-        /** Routes DEBUG/INFO → stdout seam, WARNING/ERROR → stderr seam. */
-        val PLATFORM = AttriaxLogSink { level, line ->
-            when (level) {
-                AttriaxLogLevel.DEBUG, AttriaxLogLevel.INFO -> attriaxLogInfo(line)
-                AttriaxLogLevel.WARNING, AttriaxLogLevel.ERROR -> attriaxLogError(line)
-            }
-        }
+        /** Routes every level to the platform's native log stream, severity intact. */
+        val PLATFORM = AttriaxLogSink { level, line -> attriaxLogEmit(level, line) }
     }
 }
 
@@ -58,4 +54,16 @@ internal class AttriaxLogger(
 
     private fun format(level: AttriaxLogLevel, message: String): String =
         "[Attriax][${level.name}] $message"
+
+    companion object {
+        /**
+         * A logger that emits NOTHING at any level — including warn/error.
+         *
+         * Only for tests and for internal components whose production call site always
+         * injects the engine's real logger. It must never be used as a production
+         * fallback: an accidentally-silent default is precisely what made the whole SDK
+         * undiagnosable, so silence here is opt-in and explicit.
+         */
+        val SILENT = AttriaxLogger(enableDebugLogs = false, sink = { _, _ -> })
+    }
 }
