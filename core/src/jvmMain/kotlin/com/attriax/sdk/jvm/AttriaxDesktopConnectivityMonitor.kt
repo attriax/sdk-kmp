@@ -47,15 +47,21 @@ class AttriaxDesktopConnectivityMonitor(
     @Synchronized
     override fun register(listener: ConnectivityMonitor.Listener) {
         listeners.addIfAbsent(listener)
-        if (poll == null) {
+        if (poll == null && !executor.isShutdown) {
             // Seed the baseline so the first poll only fires on a real transition.
             lastConnected = hasActiveInterface()
-            poll = executor.scheduleAtFixedRate(
-                { pollOnce() },
-                pollIntervalMs,
-                pollIntervalMs,
-                TimeUnit.MILLISECONDS,
-            )
+            poll = try {
+                executor.scheduleAtFixedRate(
+                    { pollOnce() },
+                    pollIntervalMs,
+                    pollIntervalMs,
+                    TimeUnit.MILLISECONDS,
+                )
+            } catch (e: java.util.concurrent.RejectedExecutionException) {
+                // Registered after shutdown (dispose-then-call): stay silent — the
+                // monitor is dead, isConnected() still answers.
+                null
+            }
         }
     }
 
@@ -99,7 +105,12 @@ class AttriaxDesktopConnectivityMonitor(
         false
     }
 
-    fun shutdown() {
+    /**
+     * Terminate the poll thread (engine dispose). Idempotent. [unregister] only
+     * cancels the poll task — the executor thread itself stays parked until this
+     * is called, so dispose must reach it or the thread leaks per engine instance.
+     */
+    override fun shutdown() {
         executor.shutdownNow()
     }
 

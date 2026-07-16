@@ -42,14 +42,20 @@ private class AttriaxCoroutineBackgroundExecutor(name: String) : AttriaxBackgrou
 
     override fun execute(command: () -> Unit) {
         if (shutdownFlag.value) return
-        scope.launch {
-            try {
-                command()
-            } catch (e: Throwable) {
-                // A background failure must never crash the host or kill the thread
-                // (parity with the JVM executor, whose task exception is swallowed by
-                // the discarded Future).
+        try {
+            scope.launch {
+                try {
+                    command()
+                } catch (e: Throwable) {
+                    // A background failure must never crash the host or kill the thread
+                    // (parity with the JVM executor, whose task exception is swallowed by
+                    // the discarded Future).
+                }
             }
+        } catch (e: Throwable) {
+            // Raced a concurrent shutdown: launching into a CLOSED K/N dispatcher
+            // THROWS IllegalStateException — an execute that loses that race must
+            // degrade to the same silent drop as the flag check above.
         }
     }
 

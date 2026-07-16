@@ -2,6 +2,7 @@ package com.attriax.sdk.android
 
 import com.attriax.sdk.internal.AttriaxScheduler
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 
@@ -24,18 +25,24 @@ class AttriaxExecutorScheduler : AttriaxScheduler {
         intervalMs: Long,
         action: () -> Unit,
     ): AttriaxScheduler.ScheduledHandle {
-        val future = executor.scheduleAtFixedRate(
-            {
-                try {
-                    action()
-                } catch (e: Exception) {
-                    // A heartbeat failure must never crash the host or kill the timer.
-                }
-            },
-            intervalMs,
-            intervalMs,
-            TimeUnit.MILLISECONDS,
-        )
+        val future = try {
+            executor.scheduleAtFixedRate(
+                {
+                    try {
+                        action()
+                    } catch (e: Exception) {
+                        // A heartbeat failure must never crash the host or kill the timer.
+                    }
+                },
+                intervalMs,
+                intervalMs,
+                TimeUnit.MILLISECONDS,
+            )
+        } catch (e: RejectedExecutionException) {
+            // Scheduled after shutdown (dispose-then-call): degrade to a no-op
+            // handle per the AttriaxScheduler contract instead of throwing.
+            return AttriaxScheduler.ScheduledHandle { }
+        }
         return AttriaxScheduler.ScheduledHandle { future.cancel(false) }
     }
 
@@ -43,21 +50,27 @@ class AttriaxExecutorScheduler : AttriaxScheduler {
         delayMs: Long,
         action: () -> Unit,
     ): AttriaxScheduler.ScheduledHandle {
-        val future = executor.schedule(
-            {
-                try {
-                    action()
-                } catch (e: Exception) {
-                    // A deferred-flush failure must never crash the host or the pool.
-                }
-            },
-            delayMs,
-            TimeUnit.MILLISECONDS,
-        )
+        val future = try {
+            executor.schedule(
+                {
+                    try {
+                        action()
+                    } catch (e: Exception) {
+                        // A deferred-flush failure must never crash the host or the pool.
+                    }
+                },
+                delayMs,
+                TimeUnit.MILLISECONDS,
+            )
+        } catch (e: RejectedExecutionException) {
+            // Scheduled after shutdown (dispose-then-call): degrade to a no-op handle.
+            return AttriaxScheduler.ScheduledHandle { }
+        }
         return AttriaxScheduler.ScheduledHandle { future.cancel(false) }
     }
 
-    fun shutdown() {
+    /** Terminate the timer thread (engine dispose). Idempotent. */
+    override fun shutdown() {
         executor.shutdownNow()
     }
 }

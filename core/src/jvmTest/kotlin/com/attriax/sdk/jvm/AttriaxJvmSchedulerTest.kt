@@ -62,4 +62,44 @@ class AttriaxJvmSchedulerTest {
             scheduler.shutdown()
         }
     }
+
+    @Test
+    fun shutdownTerminatesTheSchedulerThread() {
+        // Track by Thread identity: other suites in this JVM may hold their own
+        // attriax-session threads, so only the thread THIS scheduler created counts.
+        val before = liveSessionThreads().toSet()
+        val scheduler = AttriaxJvmScheduler()
+        val latch = CountDownLatch(1)
+        scheduler.scheduleOnce(1L) { latch.countDown() } // force the worker thread to start
+        assertTrue(latch.await(5, TimeUnit.SECONDS))
+        val created = liveSessionThreads().filterNot { it in before }
+        assertTrue(created.isNotEmpty(), "the scheduler should have started its attriax-session thread")
+
+        scheduler.shutdown()
+
+        created.forEach { it.join(5_000L) }
+        assertTrue(
+            created.none { it.isAlive },
+            "shutdown must terminate the attriax-session thread",
+        )
+    }
+
+    private fun liveSessionThreads(): List<Thread> =
+        Thread.getAllStackTraces().keys.filter { it.isAlive && it.name == "attriax-session" }
+
+    @Test
+    fun scheduleAfterShutdownIsANonThrowingNoop() {
+        val scheduler = AttriaxJvmScheduler()
+        scheduler.shutdown()
+        scheduler.shutdown() // idempotent
+
+        val count = AtomicInteger(0)
+        // Dispose-then-call contract: degrade to a no-op handle, never throw.
+        val once = scheduler.scheduleOnce(10L) { count.incrementAndGet() }
+        val periodic = scheduler.schedulePeriodic(10L) { count.incrementAndGet() }
+        once.cancel()
+        periodic.cancel()
+        Thread.sleep(150L)
+        assertEquals(0, count.get(), "nothing may fire after shutdown")
+    }
 }

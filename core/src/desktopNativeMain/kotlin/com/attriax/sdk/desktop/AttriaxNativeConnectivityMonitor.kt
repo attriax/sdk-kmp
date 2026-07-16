@@ -1,6 +1,7 @@
 package com.attriax.sdk.desktop
 
 import com.attriax.sdk.internal.ConnectivityMonitor
+import kotlinx.atomicfu.atomic
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CoroutineScope
@@ -41,6 +42,7 @@ class AttriaxNativeConnectivityMonitor(
     private val dispatcher = newSingleThreadContext("attriax-connectivity")
     private val scope = CoroutineScope(dispatcher + SupervisorJob())
     private val lock = SynchronizedObject()
+    private val shutdownFlag = atomic(false)
 
     private var listener: ConnectivityMonitor.Listener? = null
     private var lastConnected: Boolean = false
@@ -49,6 +51,7 @@ class AttriaxNativeConnectivityMonitor(
     override fun isConnected(): Boolean = attriaxIsNetworkConnected()
 
     override fun register(listener: ConnectivityMonitor.Listener) {
+        if (shutdownFlag.value) return // registered after teardown (dispose-then-call)
         synchronized(lock) {
             this.listener = listener
             if (started) return
@@ -56,6 +59,15 @@ class AttriaxNativeConnectivityMonitor(
             // Seed the baseline so the first poll only fires on a real transition.
             lastConnected = attriaxIsNetworkConnected()
         }
+        try {
+            startPolling()
+        } catch (e: Throwable) {
+            // Raced a concurrent teardown: launching into a CLOSED K/N dispatcher
+            // THROWS IllegalStateException — the monitor is dead, stay silent.
+        }
+    }
+
+    private fun startPolling() {
         scope.launch {
             while (isActive) {
                 delay(pollIntervalMs)
@@ -83,6 +95,19 @@ class AttriaxNativeConnectivityMonitor(
 
     override fun unregister(listener: ConnectivityMonitor.Listener) {
         synchronized(lock) { this.listener = null }
+        // This monitor is single-listener and per-engine: losing its only listener
+        // is terminal, so the poll thread is torn down here (dispose also calls
+        // [shutdown]; the teardown is idempotent either way).
+        teardown()
+    }
+
+    /** Terminate the poll thread (engine dispose). Idempotent. */
+    override fun shutdown() {
+        teardown()
+    }
+
+    private fun teardown() {
+        if (!shutdownFlag.compareAndSet(expect = false, update = true)) return
         try {
             scope.cancel()
         } catch (e: Throwable) {

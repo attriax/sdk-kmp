@@ -57,4 +57,34 @@ class AttriaxNativeSchedulerTest {
             scheduler.shutdown()
         }
     }
+
+    @Test
+    fun shutdownStopsPendingTicksAndIsIdempotent() {
+        val scheduler = AttriaxNativeScheduler()
+        val count = atomic(0)
+        scheduler.scheduleOnce(200L) { count.incrementAndGet() }
+        scheduler.schedulePeriodic(100L) { count.incrementAndGet() }
+
+        scheduler.shutdown()
+        scheduler.shutdown() // double-dispose path: must be a safe no-op
+
+        sleepMs(500L)
+        assertEquals(0, count.value, "no scheduled tick may fire after shutdown")
+    }
+
+    @Test
+    fun scheduleAfterShutdownIsANonThrowingNoop() {
+        val scheduler = AttriaxNativeScheduler()
+        scheduler.shutdown()
+
+        val count = atomic(0)
+        // Dispose-then-call contract: launching into the cancelled scope never
+        // dispatches and never throws; the returned handles stay cancellable.
+        val once = scheduler.scheduleOnce(10L) { count.incrementAndGet() }
+        val periodic = scheduler.schedulePeriodic(10L) { count.incrementAndGet() }
+        once.cancel()
+        periodic.cancel()
+        sleepMs(200L)
+        assertEquals(0, count.value, "nothing may fire after shutdown")
+    }
 }

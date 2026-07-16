@@ -1,6 +1,7 @@
 package com.attriax.sdk.desktop
 
 import com.attriax.sdk.internal.AttriaxScheduler
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -27,22 +28,30 @@ class AttriaxNativeScheduler : AttriaxScheduler {
 
     private val dispatcher = newSingleThreadContext("attriax-session")
     private val scope = CoroutineScope(dispatcher + SupervisorJob())
+    private val shutdownFlag = atomic(false)
 
     override fun schedulePeriodic(
         intervalMs: Long,
         action: () -> Unit,
     ): AttriaxScheduler.ScheduledHandle {
+        if (shutdownFlag.value) return AttriaxScheduler.ScheduledHandle { }
         // First tick after one interval, then every interval — parity with the JVM
         // `scheduleAtFixedRate(interval, interval)`.
-        val job = scope.launch {
-            while (isActive) {
-                delay(intervalMs)
-                try {
-                    action()
-                } catch (e: Throwable) {
-                    // A heartbeat failure must never crash the host or kill the timer.
+        val job = try {
+            scope.launch {
+                while (isActive) {
+                    delay(intervalMs)
+                    try {
+                        action()
+                    } catch (e: Throwable) {
+                        // A heartbeat failure must never crash the host or kill the timer.
+                    }
                 }
             }
+        } catch (e: Throwable) {
+            // Raced a concurrent shutdown (launching into a CLOSED K/N dispatcher
+            // THROWS IllegalStateException): degrade to a no-op handle.
+            return AttriaxScheduler.ScheduledHandle { }
         }
         return AttriaxScheduler.ScheduledHandle { job.cancel() }
     }
@@ -51,18 +60,31 @@ class AttriaxNativeScheduler : AttriaxScheduler {
         delayMs: Long,
         action: () -> Unit,
     ): AttriaxScheduler.ScheduledHandle {
-        val job = scope.launch {
-            delay(delayMs)
-            try {
-                action()
-            } catch (e: Throwable) {
-                // A deferred-flush failure must never crash the host or the pool.
+        if (shutdownFlag.value) return AttriaxScheduler.ScheduledHandle { }
+        val job = try {
+            scope.launch {
+                delay(delayMs)
+                try {
+                    action()
+                } catch (e: Throwable) {
+                    // A deferred-flush failure must never crash the host or the pool.
+                }
             }
+        } catch (e: Throwable) {
+            // Raced a concurrent shutdown (closed-dispatcher launch throws).
+            return AttriaxScheduler.ScheduledHandle { }
         }
         return AttriaxScheduler.ScheduledHandle { job.cancel() }
     }
 
-    fun shutdown() {
+    /**
+     * Terminate the dispatcher thread (engine dispose). Idempotent — only the
+     * first caller tears the thread down. Schedule calls after shutdown degrade to
+     * no-op handles (the flag check above; NOT a cancelled-scope free ride —
+     * launching into a closed K/N dispatcher throws).
+     */
+    override fun shutdown() {
+        if (!shutdownFlag.compareAndSet(expect = false, update = true)) return
         try {
             scope.cancel()
         } catch (e: Throwable) {

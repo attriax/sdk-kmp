@@ -76,6 +76,18 @@ interface HttpClient {
      */
     fun get(path: String): HttpResponse =
         throw AttriaxTransportException("GET is not supported by this transport")
+
+    /**
+     * Release transport resources this instance owns (worker threads, connection
+     * pools). Called ONCE from [com.attriax.sdk.Attriax.dispose]; idempotent and
+     * best-effort — it must never throw. Defaulted to a no-op because most
+     * transports (JDK `HttpURLConnection`, `NSURLSession`) hold no engine-owned
+     * threads; the Ktor-backed native desktop transport overrides it to close its
+     * client (whose engine otherwise leaks Kotlin/Native worker threads past
+     * `attriax_destroy`). A closed transport may fail subsequent sends — dispose
+     * shuts the flush executor down first, so nothing dispatches afterwards.
+     */
+    fun close() {}
 }
 
 /** Connectivity port. Implementations invoke [Listener.onConnectivityRestored] on regain. */
@@ -87,6 +99,17 @@ interface ConnectivityMonitor {
     fun isConnected(): Boolean
     fun register(listener: Listener)
     fun unregister(listener: Listener)
+
+    /**
+     * Stop the monitor and release any thread/poller it owns. Called ONCE from
+     * [com.attriax.sdk.Attriax.dispose] (after [unregister]); idempotent and
+     * best-effort — it must never throw. Defaulted to a no-op for callback-backed
+     * monitors (Android `ConnectivityManager`, Apple `NWPathMonitor`) whose
+     * [unregister] already detaches everything; the polling desktop monitors
+     * override it to terminate their dedicated poll thread, which [unregister]
+     * alone leaves parked.
+     */
+    fun shutdown() {}
 }
 
 /**
@@ -116,6 +139,20 @@ interface AttriaxScheduler {
      * [schedulePeriodic].
      */
     fun scheduleOnce(delayMs: Long, action: () -> Unit): ScheduledHandle
+
+    /**
+     * Stop the scheduler and terminate the thread/dispatcher backing it. Called
+     * ONCE from [com.attriax.sdk.Attriax.dispose]; idempotent and best-effort — it
+     * must never throw. After shutdown, [schedulePeriodic]/[scheduleOnce] MUST
+     * degrade to returning a no-op [ScheduledHandle] (never throw), preserving the
+     * engine's dispose-then-call behavior: a post-dispose tracking call still
+     * persists to the queue, it just never arms a live timer. Defaulted to a no-op
+     * so test fakes and the engine's NOOP scheduler need not implement it; every
+     * production scheduler overrides it — without this seam the `attriax-session`
+     * thread outlives `Attriax.dispose()`/`attriax_destroy` (the K/N runtime
+     * thread leak behind the Unity 0xC0000005 investigation).
+     */
+    fun shutdown() {}
 }
 
 /**

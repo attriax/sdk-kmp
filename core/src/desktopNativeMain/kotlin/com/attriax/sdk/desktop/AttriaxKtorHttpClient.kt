@@ -68,6 +68,21 @@ class AttriaxKtorHttpClient(
         }
     }
 
+    /**
+     * Close the Ktor client and its engine (engine dispose). The WinHttp/Curl
+     * engines own Kotlin/Native worker threads that otherwise outlive
+     * `attriax_destroy` — a host that unloads the shared library afterwards
+     * faults. Idempotent and best-effort; an in-flight request is cancelled and
+     * surfaces as a retryable transport failure (the queued entry stays on disk).
+     */
+    override fun close() {
+        try {
+            client.close()
+        } catch (e: Throwable) {
+            // best-effort teardown — dispose must never crash the host.
+        }
+    }
+
     override fun post(path: String, body: String): HttpResponse = runBlocking {
         request(path, method = HttpMethod.Post, body = body)
     }

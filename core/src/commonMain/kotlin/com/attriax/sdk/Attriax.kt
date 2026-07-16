@@ -1438,14 +1438,29 @@ class Attriax internal constructor(
         syncState.set(AttriaxSynchronizationState.INITIALIZING)
     }
 
+    /**
+     * Tear the instance down: stop every thread/dispatcher it owns so a host that
+     * disposes (or unloads the shared library behind `attriax_destroy`) leaves no
+     * engine thread running. Idempotent; safe to call concurrently with tracking
+     * calls. Post-dispose semantics are unchanged: tracking calls still persist to
+     * the on-disk queue, flushes are skipped (logged), and timers degrade to
+     * no-ops. In-flight flush handling keeps each executor's existing guarantee
+     * (JVM/Android drain the running task; native abandons it) — a request cut off
+     * mid-send stays queued with its retry state and is retried next launch.
+     */
     fun dispose() {
         crashReporting.uninstall()
         lifecycleBinder.unbind()
         sessionLifecycleManager.deactivate()
         cancelDeferredFlush()
         connectivity.unregister(connectivityListener)
+        connectivity.shutdown()
         flushExecutor.shutdown()
         consentExecutor.shutdown()
+        // The heartbeat/deferred-flush scheduler and the transport are stopped LAST,
+        // after the executors that use them can no longer accept work.
+        scheduler.shutdown()
+        transport.close()
     }
 
     // -------- internals --------
