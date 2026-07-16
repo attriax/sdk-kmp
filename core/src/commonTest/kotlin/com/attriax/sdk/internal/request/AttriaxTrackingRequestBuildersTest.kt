@@ -65,7 +65,7 @@ class AttriaxTrackingRequestBuildersTest {
         assertEquals("45", body["appBuildNumber"])
         assertEquals("com.x", body["appPackageName"])
         assertEquals("v1", body["sdkApiVersion"])
-        assertEquals("0.6.0", body["sdkPackageVersion"])
+        assertEquals("0.6.1", body["sdkPackageVersion"])
         assertEquals(mapOf("k" to "v"), body["metadata"])
         assertFalse(body.containsKey("app"))
         assertFalse(body.containsKey("device"))

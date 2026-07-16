@@ -18,14 +18,19 @@ automatically:
 repositories { mavenCentral() }
 
 dependencies {
-    implementation("com.attriax:core:0.6.0") // or `api(...)` to re-expose the surface
+    implementation("com.attriax:core:0.6.1") // or `api(...)` to re-expose the surface
 }
 ```
+
+> **JVM consumers must not use `0.6.0`.** `core-jvm:0.6.0` shipped Java 21 bytecode with
+> no `org.gradle.jvm.version` metadata — a JDK 17 consumer resolves and compiles green,
+> then fails at runtime with `UnsupportedClassVersionError`. Use **0.6.1** or newer.
+> (`core-android:0.6.0` was never affected.) See `CHANGELOG.md`.
 
 Registry: <https://central.sonatype.com/artifact/com.attriax/core> (per-target
 artifacts at `/core-jvm`, `/core-android`, `/core-mingwx64`, `/core-linuxx64`).
 
-## Published artifacts (group `com.attriax`, version `0.6.0`)
+## Published artifacts (group `com.attriax`, version `0.6.1`)
 
 | Coordinate | Kind | Consumed by |
 | --- | --- | --- |
@@ -57,24 +62,29 @@ This produces `.aar` / `.jar` / `.klib` + `-sources.jar` + `.module` + `.pom` fo
 every target. Verified green on this host (android + jvm + mingwX64 + linuxX64).
 For released consumption, use Maven Central (above) instead.
 
-## Publish to a remote repository (manual)
+## Publish to Maven Central (manual)
 
-The remote repo + signing are **dormant** until configured — supply them in
-`~/.gradle/gradle.properties` or via `-P`, then run `:core:publish`:
+Publishing goes through the **Sonatype Central Portal** via the
+`com.vanniktech.maven.publish` plugin (see `core/build.gradle.kts`), which signs every
+publication and uploads them as one deployment. Credentials live in your **global**
+`~/.gradle/gradle.properties` (never committed):
 
 ```properties
-ATTRIAX_PUBLISH_URL=https://<sonatype-central-or-nexus-or-github-packages>
-ATTRIAX_PUBLISH_USER=<user>
-ATTRIAX_PUBLISH_PASSWORD=<token>
-# Signing (required only when a key is present):
-signing.keyId=<8-char-key-id>
-signing.password=<key-password>
-signing.secretKeyRingFile=<path-to-secring.gpg>
+mavenCentralUsername=<Central Portal user token name>
+mavenCentralPassword=<Central Portal user token value>
+signingInMemoryKey=<ascii-armored GPG secret key, newlines as \n>
+signingInMemoryKeyId=<8-char key id>
+signingInMemoryKeyPassword=<key password>
 ```
 
 ```bash
-./gradlew :core:publishAllPublicationsToAttriaxRepository
+./gradlew :core:publishToMavenCentral
 ```
+
+`automaticRelease = false`, so the deployment lands **Validated** on
+<https://central.sonatype.com/publishing/deployments> for you to review and click
+**Publish** manually. Use `:core:publishAndReleaseToMavenCentral` only if you want to
+skip that review step.
 
 No CI: run the publish task manually and locally.
 

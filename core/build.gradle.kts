@@ -14,7 +14,7 @@ plugins {
 // Manual/local publish coordinates (no CI). `publishToMavenLocal` needs no
 // credentials; the remote repo + signing stay dormant unless configured.
 group = providers.gradleProperty("ATTRIAX_GROUP").getOrElse("com.attriax")
-version = providers.gradleProperty("ATTRIAX_VERSION").getOrElse("0.6.0")
+version = providers.gradleProperty("ATTRIAX_VERSION").getOrElse("0.6.1")
 
 // SINGLE SOURCE OF TRUTH for the JVM-family bytecode level. Feeds, in lockstep:
 //   1. androidTarget's Kotlin jvmTarget,
