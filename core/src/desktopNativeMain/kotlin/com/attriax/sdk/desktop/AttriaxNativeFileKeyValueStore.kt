@@ -1,5 +1,6 @@
 package com.attriax.sdk.desktop
 
+import com.attriax.sdk.internal.AttriaxProjectScopedKeyValueStore
 import com.attriax.sdk.internal.KeyValueStore
 import com.attriax.sdk.internal.json.Json
 import kotlinx.atomicfu.locks.SynchronizedObject
@@ -42,13 +43,18 @@ import platform.posix.rename
  * On-disk format is a single JSON object of string→string, encoded with the SDK's
  * dependency-free [Json] codec (the same codec the queue/batching use), so no
  * platform properties-file API is needed.
+ *
+ * The desktop factory layers TWO instances behind an
+ * [AttriaxProjectScopedKeyValueStore]: one on the default [FILE_NAME] (the
+ * machine-shared device-identity file, which is also the pre-split legacy store)
+ * and one on [projectFileName] (the per-project mutable state) — see #78.
  */
 @OptIn(ExperimentalForeignApi::class)
-class AttriaxNativeFileKeyValueStore(dir: String) : KeyValueStore {
+class AttriaxNativeFileKeyValueStore(dir: String, fileName: String = FILE_NAME) : KeyValueStore {
 
     private val lock = SynchronizedObject()
-    private val filePath: String = joinPath(dir, FILE_NAME)
-    private val tempPath: String = joinPath(dir, "$FILE_NAME.tmp")
+    private val filePath: String = joinPath(dir, fileName)
+    private val tempPath: String = joinPath(dir, "$fileName.tmp")
     private val entries = mutableMapOf<String, String>()
 
     init {
@@ -72,6 +78,11 @@ class AttriaxNativeFileKeyValueStore(dir: String) : KeyValueStore {
     override fun remove(key: String): Unit = synchronized(lock) {
         entries.remove(key)
         persist()
+    }
+
+    /** Snapshot of every key currently in the store (legacy-import enumeration). */
+    fun keys(): Set<String> = synchronized(lock) {
+        entries.keys.toSet()
     }
 
     private fun load() {
@@ -150,6 +161,10 @@ class AttriaxNativeFileKeyValueStore(dir: String) : KeyValueStore {
 
     companion object {
         const val FILE_NAME = "attriax-sdk.json"
+
+        /** Per-project store file name (token hashed — never embedded verbatim). */
+        internal fun projectFileName(projectToken: String): String =
+            "attriax-sdk-p${AttriaxProjectScopedKeyValueStore.projectStoreFileSuffix(projectToken)}.json"
     }
 }
 

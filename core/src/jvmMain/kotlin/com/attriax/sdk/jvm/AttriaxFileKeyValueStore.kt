@@ -1,5 +1,6 @@
 package com.attriax.sdk.jvm
 
+import com.attriax.sdk.internal.AttriaxProjectScopedKeyValueStore
 import com.attriax.sdk.internal.KeyValueStore
 import java.io.File
 import java.util.Properties
@@ -11,6 +12,11 @@ import java.util.Properties
  * identity, and crash-replay all persist through this seam, so it MUST survive a
  * process restart and never corrupt under concurrent access.
  *
+ * The desktop factory layers TWO instances behind an
+ * [AttriaxProjectScopedKeyValueStore]: one on the default [FILE_NAME] (the
+ * machine-shared device-identity file, which is also the pre-split legacy store)
+ * and one on [projectFileName] (the per-project mutable state) — see #78.
+ *
  * Durability strategy:
  *  - all mutations serialize behind [lock],
  *  - the in-memory [Properties] map is the source of truth once loaded,
@@ -18,11 +24,11 @@ import java.util.Properties
  *    `renameTo`/`Files.move` over the target) so a crash mid-write can never leave a
  *    half-written file — the reader sees either the old or the new file.
  */
-class AttriaxFileKeyValueStore(dir: File) : KeyValueStore {
+class AttriaxFileKeyValueStore(dir: File, fileName: String = FILE_NAME) : KeyValueStore {
 
     private val lock = Any()
-    private val file: File = File(dir, FILE_NAME)
-    private val tempFile: File = File(dir, "$FILE_NAME.tmp")
+    private val file: File = File(dir, fileName)
+    private val tempFile: File = File(dir, "$fileName.tmp")
     private val props = Properties()
 
     init {
@@ -46,6 +52,11 @@ class AttriaxFileKeyValueStore(dir: File) : KeyValueStore {
     override fun remove(key: String) = synchronized(lock) {
         props.remove(key)
         persist()
+    }
+
+    /** Snapshot of every key currently in the store (legacy-import enumeration). */
+    fun keys(): Set<String> = synchronized(lock) {
+        props.stringPropertyNames().toSet()
     }
 
     private fun load() {
@@ -86,5 +97,9 @@ class AttriaxFileKeyValueStore(dir: File) : KeyValueStore {
 
     companion object {
         const val FILE_NAME = "attriax-sdk.properties"
+
+        /** Per-project store file name (token hashed — never embedded verbatim). */
+        internal fun projectFileName(projectToken: String): String =
+            "attriax-sdk-p${AttriaxProjectScopedKeyValueStore.projectStoreFileSuffix(projectToken)}.properties"
     }
 }

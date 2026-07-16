@@ -3,6 +3,7 @@ package com.attriax.sdk
 import com.attriax.sdk.internal.AttriaxContextSnapshot
 import com.attriax.sdk.internal.AttriaxDeviceIdentityResolver
 import com.attriax.sdk.internal.AttriaxDeviceIdentityStore
+import com.attriax.sdk.internal.AttriaxProjectScopedKeyValueStore
 import com.attriax.sdk.internal.AttriaxUserAgent
 import com.attriax.sdk.internal.withDeviceContext
 import com.attriax.sdk.jvm.AttriaxDesktopConnectivityMonitor
@@ -20,7 +21,9 @@ import java.util.TimeZone
  * JVM). The Android sibling is [AttriaxSdk]; this mirrors its wiring but WITHOUT an
  * Android `Context`:
  *
- *  - [AttriaxFileKeyValueStore] durable file persistence (survives restarts),
+ *  - durable file persistence (survives restarts): two [AttriaxFileKeyValueStore]
+ *    files behind one [AttriaxProjectScopedKeyValueStore] — a machine-shared
+ *    device-identity file plus a per-project-token file for all other state (#78),
  *  - the single long-lived [AttriaxJvmHttpClient] transport (pure JDK
  * `HttpURLConnection`) stamped with the mandatory real User-Agent,
  *  - [AttriaxDesktopConnectivityMonitor] (NetworkInterface poll; fires the
@@ -47,7 +50,11 @@ object AttriaxDesktop {
         config: AttriaxConfig,
         dataDir: File = defaultDataDir(),
     ): Attriax {
-        val store = AttriaxFileKeyValueStore(dataDir)
+        val store = createProjectScopedStore(
+            dataDir = dataDir,
+            projectToken = config.normalizedProjectToken,
+            appPackageName = config.appPackageName,
+        )
 
         val snapshot = captureContext(config)
         val userAgent = AttriaxUserAgent.format(
@@ -83,6 +90,30 @@ object AttriaxDesktop {
             // ProcessLifecycleOwner. flush/consent executors default from the jvm
             // background-executor seam.
         )
+    }
+
+    /**
+     * The #78 two-file store layout over [dataDir]: the default-named shared file
+     * keeps ONLY the machine-wide device identity (#72 — also the legacy pre-split
+     * store, so device ids carry forward untouched); a per-project file (name
+     * derived from a hash of [projectToken]) holds all other mutable state, so two
+     * apps with different project tokens never share consent, queue, or session.
+     * Legacy single-file state is imported into the project file once —
+     * see [AttriaxProjectScopedKeyValueStore.importLegacySingleFileState].
+     */
+    internal fun createProjectScopedStore(
+        dataDir: File,
+        projectToken: String,
+        appPackageName: String?,
+    ): AttriaxProjectScopedKeyValueStore {
+        val sharedIdentityStore = AttriaxFileKeyValueStore(dataDir)
+        val projectStore = AttriaxFileKeyValueStore(
+            dataDir,
+            AttriaxFileKeyValueStore.projectFileName(projectToken),
+        )
+        val store = AttriaxProjectScopedKeyValueStore(sharedIdentityStore, projectStore)
+        store.importLegacySingleFileState(sharedIdentityStore.keys(), appPackageName)
+        return store
     }
 
     /** `~/.attriax`, falling back to the working directory when no user home is set. */
