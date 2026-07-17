@@ -22,5 +22,5 @@ object AttriaxVersion {
      * tell apart from the defective 0.6.0. (`sdk-react-native` shipped this bug:
      * a hardcoded `0.5.0` in its User-Agent while the package was `0.6.0`.)
      */
-    const val PACKAGE_VERSION: String = "0.6.1"
+    const val PACKAGE_VERSION: String = "0.6.2"
 }

@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.6.2 (unreleased)
+
+Working version on `main`. Not yet published to Maven Central. Two engine fixes have landed since
+0.6.1; publishing awaits the Apple targets' compile gate on a Mac (Windows/Linux cannot compile
+`appleMain`).
+
+### Fixed
+- **`dispose()` now actually stops the engine's threads.** All four `AttriaxScheduler` implementations
+  had a `shutdown()`, but the port never declared it, so `dispose()` had no path to call it and the
+  `attriax-session` dispatcher outlived every engine. The JVM connectivity monitor parked its executor
+  thread forever (unregister only cancelled the poll task), and the native Ktor client was never closed
+  — its worker threads are what a host that unloads the core faulted in. `dispose()` now drives
+  `scheduler.shutdown()` / `connectivity.shutdown()` / `transport.close()`; the C-ABI shape is
+  unchanged. On Kotlin/Native, launching into a closed `newSingleThreadContext` throws, so
+  schedule-after-shutdown degrades to a no-op handle.
+- **Desktop key-value store is now scoped per project.** Every desktop app on a machine shared one
+  `~/.attriax` store for consent, queue, and session, causing cross-project GDPR-consent bleed and
+  session pollution. Consent/queue/session now live in a per-project file (named by a hash of the
+  project token); the device id stays in the shared file (a device id identifies a device). Upgrade is
+  a one-time copy-and-leave, deliberately never importing the shared `consentId` (which would make the
+  cross-project correlation permanent) nor a foreign app's session snapshot.
+
 ## 0.6.1
 
 A fix release for a **runtime-breaking defect in the `com.attriax:core-jvm` artifact of 0.6.0**. Only the JVM artifact was affected — `core-android`, `core-mingwx64`, and `core-linuxx64` are unchanged in substance, and Android/Flutter/Unity integrators were never exposed. If you consume the SDK on a plain JVM (the `AttriaxDesktop` entrypoint), upgrade.
